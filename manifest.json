@@ -1,0 +1,68 @@
+{
+  "manifest_version": 3,
+  "name": "Stream Radio Mode",
+  "version": "1.0.0",
+  "description": "숲(SOOP) 라이브 스트리밍 라디오 모드 — 오디오만 재생하여 시스템 리소스 절약",
+  "permissions": ["storage", "activeTab", "tabs"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.sooplive.co.kr/*"],
+      "js": [
+        "content/ui-dark-theme.js",
+        "content/ui-actions.js",
+        "content/ui-list.js",
+        "content/ui-chat.js",
+        "content/ui.js",
+        "content/bandwidth.js",
+        "content/core.js",
+        "content/boss.js",
+        "content/soop.js"
+      ],
+      "css": ["styles/radio-overlay.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": ["*://vod.sooplive.co.kr/player/*"],
+      "js": ["content/bandwidth-frame.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "commands": {
+    "toggle-radio": {
+      "suggested_key": {
+        "default": "Alt+R"
+      },
+      "description": "라디오 모드 토글"
+    },
+    "toggle-boss": {
+      "suggested_key": {
+        "default": "Alt+B"
+      },
+      "description": "루팡 모드 토글"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["content/bandwidth-inject.js"],
+      "matches": ["*://*.sooplive.co.kr/*"]
+    }
+  ]
+}
