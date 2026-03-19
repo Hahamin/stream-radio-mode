@@ -494,6 +494,178 @@ window._srmDarkTheme = {
       /* chat_layer(참여인원/설정) 헤더 강제 축소 */
       ${s} .chat_layer .area_header { max-height: 50px !important; overflow: hidden !important; flex-shrink: 0 !important; }
       ${s} .chat_layer .area_header h2 { max-height: 36px !important; height: auto !important; min-height: 0 !important; }
+
+      /* 별풍선/도네이션 메시지 다크 스타일 */
+      ${s} .donation-container {
+        background: transparent !important;
+      }
+      ${s} .donation-bubble {
+        background: rgba(30, 45, 80, 0.85) !important;
+        border: 1px solid rgba(100, 140, 255, 0.2) !important;
+        border-radius: 12px !important;
+      }
+      ${s} .donation-bubble * {
+        color: #e0e6f0 !important;
+      }
+      ${s} .donation-bubble .name {
+        color: #7ea8f7 !important;
+      }
+      ${s} .donation-bubble .money {
+        color: #fbbf24 !important;
+      }
+      ${s} .donation-bubble .money em {
+        color: #fbbf24 !important;
+      }
+      ${s} .donation-bubble .info-box {
+        background: transparent !important;
+      }
+
+      /* 스크롤 올렸을 때 하단 채팅 미리보기 — 닉네임+텍스트 한 줄 */
+      ${s} #chat-bottom-preview {
+        display: flex !important;
+        align-items: center !important;
+        width: 100% !important;
+        padding: 8px 12px !important;
+        box-sizing: border-box !important;
+        overflow: visible !important;
+      }
+      ${s} #chat-bottom-preview .message-container {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        width: 100% !important;
+        gap: 8px !important;
+        overflow: hidden !important;
+      }
+      ${s} #chat-bottom-preview .username {
+        flex-shrink: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 3px !important;
+        white-space: nowrap !important;
+      }
+      ${s} #chat-bottom-preview .username .author {
+        color: #e0e6f0 !important;
+        font-weight: 600 !important;
+      }
+      ${s} #chat-bottom-preview .message-text {
+        display: flex !important;
+        flex: 1 !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+        align-items: center !important;
+      }
+      ${s} #chat-bottom-preview .message-text .msg {
+        display: block !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        color: rgba(200, 214, 229, 0.7) !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 20px !important;
+        height: 20px !important;
+      }
+      ${s} .chat_scroll_down {
+        background: rgba(22, 33, 62, 0.95) !important;
+        border-top: 1px solid rgba(100, 140, 255, 0.15) !important;
+        overflow: visible !important;
+      }
+
+      /* 채팅 입력창 — 배경 밝으므로 텍스트 검은색 유지 */
+      ${s} .input_chat,
+      ${s} .input_chat * {
+        color: #333 !important;
+      }
+      ${s} .write_area,
+      ${s} #write_area {
+        color: #222 !important;
+      }
+      ${s} .empty_chat,
+      ${s} #empty_chat {
+        color: #999 !important;
+      }
+
+      /* 채팅 얼림/시스템 버블 메시지 */
+      ${s} .bubble-container {
+        background: rgba(30, 45, 80, 0.85) !important;
+        border: 1px solid rgba(100, 140, 255, 0.2) !important;
+        border-radius: 12px !important;
+      }
+      ${s} .bubble-container * {
+        color: #e0e6f0 !important;
+      }
+      ${s} .bubble-container .title {
+        color: #7ea8f7 !important;
+      }
+      ${s} .bubble-container .msg {
+        color: rgba(200, 214, 229, 0.8) !important;
+      }
+
+      /* 채팅 공지 다크 스타일 */
+      ${s} .chat_notice {
+        background: rgba(30, 45, 80, 0.85) !important;
+        border: 1px solid rgba(100, 140, 255, 0.15) !important;
+        border-radius: 8px !important;
+      }
+      ${s} .chat_notice * {
+        color: #c8d6e5 !important;
+      }
+      ${s} .chat_notice .msg p {
+        color: #e0e6f0 !important;
+      }
+      ${s} .chat_topbox {
+        background: transparent !important;
+      }
+      ${s} .chat_banner2 {
+        background: rgba(30, 45, 80, 0.85) !important;
+        border: 1px solid rgba(100, 140, 255, 0.15) !important;
+        border-radius: 8px !important;
+      }
+      ${s} .chat_banner2 * {
+        color: #c8d6e5 !important;
+      }
+
+      /* 닉네임 클릭 팝업 (viewer-home) */
+      ${s} .viewer-home {
+        background: rgba(22, 33, 62, 0.98) !important;
+        border: 1px solid rgba(100, 140, 255, 0.2) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+      }
+      ${s} .viewer-home * {
+        color: #c8d6e5 !important;
+      }
+      ${s} .viewer-home .header-area {
+        background: rgba(26, 38, 66, 0.95) !important;
+        border-bottom: 1px solid rgba(100, 140, 255, 0.1) !important;
+        border-radius: 12px 12px 0 0 !important;
+      }
+      ${s} .viewer-home .header-area .nick {
+        color: #e0e6f0 !important;
+        font-weight: 600 !important;
+      }
+      ${s} .viewer-home .header-area em {
+        color: rgba(180, 200, 230, 0.5) !important;
+      }
+      ${s} .viewer-home .menu-list {
+        border-color: rgba(100, 140, 255, 0.1) !important;
+      }
+      ${s} .viewer-home .menu-list li button {
+        color: #c8d6e5 !important;
+        background: transparent !important;
+      }
+      ${s} .viewer-home .menu-list li button:hover {
+        background: rgba(100, 140, 255, 0.12) !important;
+        color: #e0e6f0 !important;
+      }
+      ${s} .viewer-home .btn-close {
+        color: rgba(180, 200, 230, 0.6) !important;
+        background: transparent !important;
+      }
+      ${s} .viewer-home .btn-close:hover {
+        color: #e0e6f0 !important;
+      }
     `;
     document.head.appendChild(style);
 
@@ -548,5 +720,15 @@ window._srmDarkTheme = {
   _removeDarkOverrideStyle() {
     this._unwatchHeaderStyles();
     document.getElementById('srm-dark-override')?.remove();
+
+    // _watchHeaderStyles가 인라인으로 설정한 background 제거
+    const chatEl = document.querySelector('.srm-chat-embedded') || document.querySelector('.wrapping.side');
+    if (chatEl) {
+      chatEl.querySelectorAll('.chat_title, .area_header').forEach(el => {
+        el.style.removeProperty('background');
+        el.style.removeProperty('background-color');
+        el.style.removeProperty('background-image');
+      });
+    }
   },
 };

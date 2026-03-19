@@ -160,10 +160,8 @@ window._srmChat = {
         if (cb) cb.style.setProperty('height', '100%', 'important');
       }
 
-      this._syncChatScrollController(chatEl);
       this._syncFloatingLayers(chatEl);
       window._srmList?._syncListPanel(chatEl);
-      this._maintainChatScrollPosition();
     });
   },
 
