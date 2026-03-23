@@ -7,6 +7,9 @@ const $ = (sel) => document.querySelector(sel);
 const radioToggle = $('#radioToggle');
 const autoRadio = $('#autoRadio');
 const bossToggle = $('#bossToggle');
+const minimizeToggle = $('#minimizeToggle');
+const shortcutsToggle = $('#shortcutsToggle');
+const shortcutKeys = $('#shortcutKeys');
 const enableSoop = $('#enableSoop');
 const statusDot = $('#statusDot');
 const statusText = $('#statusText');
@@ -17,11 +20,13 @@ function isSoopTab(tab) {
 
 async function init() {
   const settings = await chrome.storage.local.get([
-    'autoRadio', 'enableSoop'
+    'autoRadio', 'enableSoop', 'shortcutsEnabled'
   ]);
 
   autoRadio.checked = settings.autoRadio || false;
   enableSoop.checked = settings.enableSoop !== false;
+  shortcutsToggle.checked = settings.shortcutsEnabled !== false;
+  shortcutKeys.classList.toggle('disabled', !shortcutsToggle.checked);
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -122,6 +127,17 @@ bossToggle.addEventListener('change', async () => {
   }
 });
 
+minimizeToggle.addEventListener('change', async () => {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'toggle-minimize',
+    });
+    minimizeToggle.checked = Boolean(response?.minimized);
+  } catch {
+    minimizeToggle.checked = !minimizeToggle.checked;
+  }
+});
+
 autoRadio.addEventListener('change', () => {
   chrome.storage.local.set({ autoRadio: autoRadio.checked });
 });
@@ -129,6 +145,11 @@ autoRadio.addEventListener('change', () => {
 enableSoop.addEventListener('change', async () => {
   await chrome.storage.local.set({ enableSoop: enableSoop.checked });
   await init();
+});
+
+shortcutsToggle.addEventListener('change', () => {
+  chrome.storage.local.set({ shortcutsEnabled: shortcutsToggle.checked });
+  shortcutKeys.classList.toggle('disabled', !shortcutsToggle.checked);
 });
 
 init();

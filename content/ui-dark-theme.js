@@ -696,6 +696,11 @@ window._srmDarkTheme = {
 
     this._headerObserver = new MutationObserver((mutations) => {
       for (const m of mutations) {
+        // SPA 네비게이션 가드
+        if (!m.target.isConnected) {
+          this._unwatchHeaderStyles();
+          return;
+        }
         if (m.type === 'attributes' && m.attributeName === 'style') {
           forceBackground(m.target);
         }

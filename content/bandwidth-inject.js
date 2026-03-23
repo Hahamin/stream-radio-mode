@@ -274,5 +274,28 @@
     }
   });
 
+  // ── history API 후킹 — SOOP moveBroad의 pushState/replaceState 감지 ──
+  if (!window.__srmHistoryPatched) {
+    window.__srmHistoryPatched = true;
+    const origPush = history.pushState;
+    const origReplace = history.replaceState;
+
+    history.pushState = function(...args) {
+      const result = origPush.apply(this, args);
+      window.postMessage({ type: 'srm-url-changed', url: location.href }, '*');
+      return result;
+    };
+
+    history.replaceState = function(...args) {
+      const result = origReplace.apply(this, args);
+      window.postMessage({ type: 'srm-url-changed', url: location.href }, '*');
+      return result;
+    };
+
+    window.addEventListener('popstate', () => {
+      window.postMessage({ type: 'srm-url-changed', url: location.href }, '*');
+    });
+  }
+
   console.log('[StreamRadio] 대역폭 절약 엔진 로드 (page context)');
 })();

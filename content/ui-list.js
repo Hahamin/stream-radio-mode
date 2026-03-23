@@ -8,6 +8,9 @@ window._srmList = {
   _listCloseBtnHandler: null,
   _listRefreshBtnHandler: null,
   _boundListArea: null,
+  _navInterceptHandler: null,
+  _filterHandlers: [],
+  _listPanelShown: false,
 
   _triggerSoopListInit(chatEl) {
     if (chatEl.dataset.srmSoopListInit === '1') return;
@@ -32,6 +35,8 @@ window._srmList = {
     const { listArea, listRoot, listTab } = this._findChatLayoutParts(chatEl);
     if (!listArea && !listRoot) return;
 
+    this._listPanelShown = false;
+
     if (this._listVisible) {
       this._showListPanel(chatEl);
       window.setTimeout(() => this._showListPanel(chatEl), 300);
@@ -41,10 +46,44 @@ window._srmList = {
     if (listTab && !this._listTabHandler) {
       this._listTabHandler = () => {
         this._listVisible = true;
+        this._listPanelShown = false;
         requestAnimationFrame(() => this._showListPanel(chatEl));
       };
       listTab.addEventListener('click', this._listTabHandler, true);
     }
+
+    // filter_list 내부 필터 탭 (전체/VOD/Catch/추천방송) 핸들러
+    this._bindFilterHandlers(chatEl);
+  },
+
+  /**
+   * filter_list 내부 필터 탭에 이벤트 핸들러 바인딩
+   * — 추천방송 등 비기본 필터 클릭 시 패널 sync 일시정지
+   * — 전체 필터로 돌아오면 sync 재개
+   */
+  _bindFilterHandlers(chatEl) {
+    this._unbindFilterHandlers();
+
+    const listArea = chatEl.querySelector('#list_area');
+    if (!listArea) return;
+
+    const filterItems = listArea.querySelectorAll('.filter_list li[id]');
+    for (const item of filterItems) {
+      const btn = item.querySelector('button') || item;
+      const handler = () => {
+        // 어떤 필터든 클릭하면 패널 상태 재설정 → 다음 sync에서 반영
+        this._listPanelShown = false;
+      };
+      btn.addEventListener('click', handler, true);
+      this._filterHandlers.push({ el: btn, handler });
+    }
+  },
+
+  _unbindFilterHandlers() {
+    for (const { el, handler } of this._filterHandlers) {
+      el.removeEventListener('click', handler, true);
+    }
+    this._filterHandlers = [];
   },
 
   _findChatLayoutParts(chatEl) {
@@ -81,14 +120,91 @@ window._srmList = {
     const dockTarget = listRoot || listArea;
     if (!dockTarget) return;
 
-    chatEl.classList.add('srm-list-open');
-    dockTarget.classList.add('srm-list-docked');
-    dockTarget.setAttribute('data-srm-list-root', '1');
-    dockTarget.style.setProperty('display', 'flex');
-    if (listArea && dockTarget !== listArea) {
-      listArea.style.setProperty('display', 'flex');
+    // Guard: DOM 변경이 필요한 경우만 수행 (불필요한 mutation 방지)
+    if (!chatEl.classList.contains('srm-list-open')) {
+      chatEl.classList.add('srm-list-open');
     }
+    if (!dockTarget.classList.contains('srm-list-docked')) {
+      dockTarget.classList.add('srm-list-docked');
+    }
+    if (dockTarget.getAttribute('data-srm-list-root') !== '1') {
+      dockTarget.setAttribute('data-srm-list-root', '1');
+    }
+    // display: flex는 CSS가 처리 (.srm-list-open .srm-list-docked[data-srm-list-root="1"])
+    // 인라인 style 설정은 mutation 유발하므로 초기 설정 시에만 사용
+    if (!this._listPanelShown) {
+      dockTarget.style.setProperty('display', 'flex');
+      if (listArea && dockTarget !== listArea) {
+        listArea.style.setProperty('display', 'flex');
+      }
+    }
+
+    this._listPanelShown = true;
     this._bindListCloseButton(listArea || dockTarget, chatEl);
+    this._bindNavIntercept();
+  },
+
+  /**
+   * 페이지 전체에서 네비게이션 링크 클릭 시 모든 옵저버를 즉시 정지
+   * — window capture로 SOOP 핸들러보다 먼저 실행
+   * — SPA 전환 중 MutationObserver 폭주로 인한 프리즈 방지
+   */
+  _bindNavIntercept() {
+    if (this._navInterceptHandler) return;
+
+    this._navInterceptHandler = (e) => {
+      // 라디오 모드가 아니면 무시
+      if (!window.__radioModeCore?.active) return;
+
+      const link = e.target.closest?.('a[href]');
+      if (!link) return;
+      const href = link.getAttribute('href') || '';
+      // javascript: 링크나 # 앵커는 무시
+      if (href.startsWith('javascript:') || href === '#' || href === '#n') return;
+      // 같은 페이지 내 앵커는 무시
+      if (href.startsWith('#')) return;
+
+      // 리스트 패널 내부 링크인 경우만 네비게이션 처리
+      // (추천방송 카드 클릭 등)
+      const listPanel = document.querySelector('.srm-list-docked[data-srm-list-root="1"]');
+      const isInsideListPanel = listPanel && listPanel.contains(link);
+      const isInsideChatPanel = document.querySelector('.srm-chat-embedded')?.contains(link);
+
+      if (!isInsideListPanel && !isInsideChatPanel) return;
+
+      // 네비게이션 링크 → 모든 옵저버 즉시 정지 (mutation 폭주 방지)
+      window._srmChat?._stopChatLayoutObserver();
+      window._srmChat?._stopChatScrollController();
+      window._srmActions?._stopActionStateSync();
+      window._srmDarkTheme?._unwatchHeaderStyles?.();
+
+      this._listPanelShown = false;
+
+      // 패널 숨김은 다음 프레임으로 지연
+      // — SOOP의 SPA 핸들러(bubble)가 먼저 클릭을 처리하도록 보장
+      requestAnimationFrame(() => {
+        const chatEl = document.querySelector('.srm-chat-embedded');
+        if (chatEl) {
+          const lp = chatEl.querySelector('.srm-list-docked[data-srm-list-root="1"]');
+          if (lp) {
+            lp.style.setProperty('display', 'none', 'important');
+          }
+          chatEl.style.setProperty('display', 'none', 'important');
+        }
+        window._srmDarkTheme?._removeDarkOverrideStyle();
+        window._srmDarkTheme?._restoreAncestorTransforms();
+      });
+    };
+
+    // window capture = 이벤트 전파 최상단 → SOOP 핸들러보다 먼저 실행
+    window.addEventListener('click', this._navInterceptHandler, true);
+  },
+
+  _unbindNavIntercept() {
+    if (this._navInterceptHandler) {
+      window.removeEventListener('click', this._navInterceptHandler, true);
+    }
+    this._navInterceptHandler = null;
   },
 
   _hideListPanel(chatEl, options = {}) {
@@ -107,15 +223,20 @@ window._srmList = {
       listArea.style.removeProperty('display');
     }
     chatEl?.classList.remove('srm-list-open');
+    this._listPanelShown = false;
   },
 
   _syncListPanel(chatEl) {
     const { listArea, listRoot } = this._findChatLayoutParts(chatEl);
     if (!listArea && !listRoot) return;
 
-    if (window._srmChat?._chatVisible && this._listVisible) {
-      this._showListPanel(chatEl);
-    }
+    if (!this._listVisible) return;
+    if (!window._srmChat?._chatVisible) return;
+
+    // 이미 패널이 표시되어 있으면 매 프레임 재설정 불필요
+    if (this._listPanelShown) return;
+
+    this._showListPanel(chatEl);
   },
 
   _bindListCloseButton(listArea, chatEl) {
@@ -157,14 +278,13 @@ window._srmList = {
     };
 
     this._listRefreshBtnHandler = (e) => {
-      e.stopImmediatePropagation();
-      e.preventDefault();
+      e.preventDefault(); // href="#n" 해시 네비게이션 차단
+      // stopImmediatePropagation 안 함 → SOOP의 새로고침 핸들러 실행 허용
       this._listVisible = true;
-      this._triggerSoopListInit(chatEl);
-      this._showListPanel(chatEl);
-      window.setTimeout(() => this._showListPanel(chatEl), 120);
-      window.setTimeout(() => this._showListPanel(chatEl), 360);
-      window.setTimeout(() => this._showListPanel(chatEl), 820);
+      this._listPanelShown = false;
+      // SOOP 새로고침 완료 후 패널 재동기화
+      window.setTimeout(() => this._showListPanel(chatEl), 300);
+      window.setTimeout(() => this._showListPanel(chatEl), 800);
     };
 
     closeBtn?.addEventListener('click', this._listCloseBtnHandler, true);
@@ -212,7 +332,9 @@ window._srmList = {
 
   _teardownListPanel(chatEl) {
     this._hideListPanel(chatEl, { restore: true });
+    // nav intercept는 여기서 제거하지 않음 — 라디오 모드 종료 시에만 제거
     this._unbindListCloseButton();
+    this._unbindFilterHandlers();
 
     delete chatEl?.dataset?.srmSoopListInit;
 
@@ -222,5 +344,6 @@ window._srmList = {
     }
 
     this._listTabHandler = null;
+    this._listPanelShown = false;
   },
 };

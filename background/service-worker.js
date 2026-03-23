@@ -6,31 +6,10 @@
 // 보스 모드에서 돌아갈 탭 ID 저장
 let bossModeTabId = null;
 
-// 키보드 단축키 처리
-chrome.commands.onCommand.addListener(async (command) => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+// 최소화 모드 상태
+let minimizedWindowId = null;
 
-  if (command === 'toggle-radio') {
-    if (!tab?.id) return;
-
-    try {
-      await chrome.tabs.sendMessage(tab.id, { action: 'toggle-radio' });
-    } catch {
-      // content script가 로드되지 않은 탭
-    }
-  } else if (command === 'toggle-boss') {
-    if (bossModeTabId !== null) {
-      await disableBossMode(bossModeTabId, true);
-      return;
-    }
-
-    if (tab?.id) {
-      await toggleBossMode(tab.id);
-    }
-  }
-});
-
-// content script에서 메시지 수신
+// content script / 팝업에서 메시지 수신
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'state-changed' && sender.tab?.id) {
     updateBadge(sender.tab.id, msg.active);
@@ -56,6 +35,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       bossModeTabId = null;
     }
     sendResponse({ active: false });
+    return false;
+  }
+
+  if (msg.action === 'toggle-minimize') {
+    toggleMinimizeMode()
+      .then((minimized) => sendResponse({ minimized }))
+      .catch(() => sendResponse({ minimized: false }));
+    return true;
+  }
+
+  if (msg.action === 'get-minimize-state') {
+    sendResponse({ minimized: minimizedWindowId !== null });
     return false;
   }
 
@@ -124,6 +115,33 @@ async function setBossState(tabId, active) {
     if (bossModeTabId === tabId) {
       bossModeTabId = null;
     }
+    return false;
+  }
+}
+
+// 최소화 모드 토글
+async function toggleMinimizeMode() {
+  try {
+    if (minimizedWindowId !== null) {
+      // 복원
+      try {
+        await chrome.windows.update(minimizedWindowId, { state: 'normal' });
+      } catch {}
+      minimizedWindowId = null;
+      return false;
+    }
+
+    // 현재 창 최소화
+    const currentWindow = await chrome.windows.getCurrent();
+    if (currentWindow?.id) {
+      await chrome.windows.update(currentWindow.id, { state: 'minimized' });
+      minimizedWindowId = currentWindow.id;
+      return true;
+    }
+
+    return false;
+  } catch {
+    minimizedWindowId = null;
     return false;
   }
 }

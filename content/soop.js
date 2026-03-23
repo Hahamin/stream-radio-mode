@@ -16,7 +16,17 @@
 class SoopAdapter {
   constructor() {
     this.siteName = 'soop';
-    this._savedQuality = null;
+  }
+
+  /**
+   * 현재 페이지가 라이브 시청 페이지인지 판단
+   */
+  isLivePage() {
+    const url = location.href;
+    return url.includes('play.sooplive.co.kr/')
+      && !url.endsWith('/live/all')
+      && !url.endsWith('sooplive.co.kr/')
+      && !url.includes('/directory/');
   }
 
   /**
@@ -65,78 +75,6 @@ class SoopAdapter {
   }
 
   /**
-   * 현재 화질 정보 가져오기
-   */
-  async getCurrentQuality() {
-    try {
-      const qualityEl = document.querySelector(
-        '[class*="quality"] [class*="current"], [class*="resolution"] .selected'
-      );
-      return qualityEl?.textContent?.trim() || null;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * 최저 화질로 변경
-   */
-  async setLowestQuality() {
-    try {
-      this._savedQuality = await this.getCurrentQuality();
-
-      // 설정 버튼 → 화질 메뉴
-      const settingsBtn = this._findSettingsButton();
-      if (settingsBtn) {
-        settingsBtn.click();
-        await this._sleep(300);
-
-        const qualityItems = this._findQualityOptions();
-        if (qualityItems.length > 0) {
-          const lowest = qualityItems[qualityItems.length - 1];
-          lowest.click();
-          await this._sleep(200);
-          settingsBtn.click();
-          return;
-        }
-        settingsBtn.click();
-      }
-
-      // 화질 설정 UI를 찾지 못한 경우
-      // → video display:none만으로도 GPU 렌더링은 중단됨 (대역폭 절약은 제한적)
-    } catch (e) {
-      console.warn('[StreamRadio] 숲 화질 변경 실패:', e);
-    }
-  }
-
-  /**
-   * 이전 화질로 복원
-   */
-  async restoreQuality(quality) {
-    if (!quality) return;
-    try {
-      const settingsBtn = this._findSettingsButton();
-      if (settingsBtn) {
-        settingsBtn.click();
-        await this._sleep(300);
-
-        const qualityItems = this._findQualityOptions();
-        for (const item of qualityItems) {
-          if (item.textContent?.trim().includes(quality)) {
-            item.click();
-            await this._sleep(200);
-            settingsBtn.click();
-            return;
-          }
-        }
-        settingsBtn.click();
-      }
-    } catch (e) {
-      console.warn('[StreamRadio] 숲 화질 복원 실패:', e);
-    }
-  }
-
-  /**
    * 스트리머 정보 추출
    */
   async getStreamerInfo() {
@@ -164,6 +102,7 @@ class SoopAdapter {
       ) || document.querySelector('.wrapping_player_bottom .nickname')
         || document.querySelector('.nickname');
 
+      console.log('[StreamRadio] nickname DOM:', nicknameEl?.textContent?.trim(), '| title:', document.title, '| URL:', location.pathname);
       if (nicknameEl?.textContent?.trim()) {
         const fullText = nicknameEl.textContent.trim();
         // "BJ이름 · 방송제목" 또는 "BJ이름 - 방송제목" 패턴 분리
@@ -201,9 +140,17 @@ class SoopAdapter {
         }
       }
 
+      // fallback: document.title에서 이름 추출 ("스트리머 - SOOP" 형식)
+      if (!info.name) {
+        const titleMatch = document.title.match(/^(.+?)\s*[-–]\s*SOOP/);
+        if (titleMatch) {
+          info.name = titleMatch[1].trim();
+        }
+      }
+
       // fallback: URL에서 BJ ID
       if (!info.name) {
-        const match = location.pathname.match(/\/([^/]+)$/);
+        const match = location.pathname.match(/\/([^/]+)\/?$/);
         if (match) {
           info.name = decodeURIComponent(match[1]);
         }
@@ -257,39 +204,6 @@ class SoopAdapter {
     }
   }
 
-  // --- 유틸 ---
-
-  _findSettingsButton() {
-    const selectors = [
-      '.skin_object button[class*="setting"]',
-      '.skin_object [class*="btn_setting"]',
-      'button[class*="setting"]',
-      'button[title*="설정"]',
-    ];
-    for (const sel of selectors) {
-      const el = document.querySelector(sel);
-      if (el) return el;
-    }
-    return null;
-  }
-
-  _findQualityOptions() {
-    const selectors = [
-      '[class*="quality"] [class*="item"]',
-      '[class*="quality_list"] li',
-      '.setting_quality li',
-      '[class*="resolution"] li',
-    ];
-    for (const sel of selectors) {
-      const items = document.querySelectorAll(sel);
-      if (items.length > 0) return Array.from(items);
-    }
-    return [];
-  }
-
-  _sleep(ms) {
-    return new Promise((r) => setTimeout(r, ms));
-  }
 }
 
 // 어댑터 등록

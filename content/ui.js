@@ -36,16 +36,15 @@ const RadioOverlayUI = {
     const overlay = document.createElement('div');
     overlay.className = 'srm-overlay';
     overlay.innerHTML = this._buildHTML(info, callbacks?.currentVolume ?? 0.5);
-    container.style.position = container.style.position || 'relative';
     container.appendChild(overlay);
     this._overlayEl = overlay;
 
     this._bindEvents(overlay, callbacks);
     this._startVisualizer(overlay);
     this._startStatsSync(overlay);
-    window._srmActions._updateActionCounts(overlay);
-    window._srmActions._updateFavIcon(overlay);
-    window._srmActions._startActionStateSync(overlay);
+    window._srmActions?._updateActionCounts(overlay);
+    window._srmActions?._updateFavIcon(overlay);
+    window._srmActions?._startActionStateSync(overlay);
   },
 
   /**
@@ -73,15 +72,15 @@ const RadioOverlayUI = {
       }
     }
 
-    window._srmActions._updateActionCounts(this._overlayEl);
-    window._srmActions._updateFavIcon(this._overlayEl);
+    window._srmActions?._updateActionCounts(this._overlayEl);
+    window._srmActions?._updateFavIcon(this._overlayEl);
   },
 
   hide() {
-    window._srmChat._setChatVisible(false);
+    window._srmChat?._setChatVisible(false);
     window._srmChat?._setChatState(false);
-    window._srmActions._stopActionStateSync();
-    window._srmChat._stopChatScrollController();
+    window._srmActions?._stopActionStateSync();
+    window._srmChat?._stopChatScrollController();
     this._stopStatsSync();
 
     if (this._overlayEl) {

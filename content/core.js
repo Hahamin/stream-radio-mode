@@ -107,12 +107,7 @@ class RadioModeCore {
     if (!this._autoRadio || !this.adapter || this.active) return;
 
     // 방송 시청 페이지에서만 자동 활성화 (메인/목록 페이지 제외)
-    const url = location.href;
-    const isLivePage = url.includes('play.sooplive.co.kr/')
-      && !url.endsWith('/live/all')
-      && !url.endsWith('sooplive.co.kr/')
-      && !url.includes('/directory/');
-    if (!isLivePage) return;
+    if (typeof this.adapter.isLivePage === 'function' && !this.adapter.isLivePage()) return;
 
     this._playerReady.then((video) => {
       if (video && this.adapter && !this.active) {
@@ -222,7 +217,7 @@ class RadioModeCore {
     this._videoRef = video;
 
     // 비디오 렌더링만 숨기고 오디오는 유지한다.
-    video.style.visibility = 'hidden';
+    video.style.opacity = '0';
 
     // 대역폭 절약은 page context의 livePlayer API만 사용한다.
     window.__bandwidthSaver?.enable();
@@ -259,10 +254,11 @@ class RadioModeCore {
         video.removeEventListener('volumechange', this._volumeHandler);
         this._volumeHandler = null;
       }
-      video.style.visibility = '';
+      video.style.opacity = '';
     }
 
     RadioOverlayUI.hide();
+    window._srmList?._unbindNavIntercept();
 
     this.active = false;
     this._videoRef = null;
@@ -294,12 +290,21 @@ class RadioModeCore {
   _startUrlWatch() {
     this._stopUrlWatch();
     this._lastUrl = location.href;
+
+    // 1) 폴링 (fallback — 500ms로 단축)
     this._urlCheckInterval = setInterval(() => {
-      if (location.href !== this._lastUrl) {
-        this._lastUrl = location.href;
-        this._onUrlChanged();
-      }
-    }, 1000);
+      this._checkUrlChange();
+    }, 500);
+
+    // 2) page context에서 보내는 pushState/replaceState 감지 메시지 수신
+    this._urlMessageHandler = (e) => {
+      if (e.source !== window || e.data?.type !== 'srm-url-changed') return;
+      this._checkUrlChange();
+    };
+    window.addEventListener('message', this._urlMessageHandler);
+
+    // inject 스크립트가 아직 로드 안 됐을 수 있으므로 즉시 로드 보장
+    window.__bandwidthSaver?._ensureInjected();
   }
 
   _stopUrlWatch() {
@@ -307,23 +312,49 @@ class RadioModeCore {
       clearInterval(this._urlCheckInterval);
       this._urlCheckInterval = null;
     }
+    if (this._urlMessageHandler) {
+      window.removeEventListener('message', this._urlMessageHandler);
+      this._urlMessageHandler = null;
+    }
+  }
+
+  _checkUrlChange() {
+    if (location.href !== this._lastUrl) {
+      this._lastUrl = location.href;
+      this._onUrlChanged();
+    }
   }
 
   async _onUrlChanged() {
     if (!this.active || !this.adapter) return;
+    console.log('[StreamRadio] URL 변경 감지 → 라디오 모드 재시작:', location.href);
 
-    // 새 페이지의 비디오/스트리머 정보 로드 대기
-    await new Promise((r) => setTimeout(r, 2000));
-
-    const video = this.adapter.findVideoElement();
-    if (video) {
-      this._videoRef = video;
-      video.style.visibility = 'hidden';
-      window.__bandwidthSaver?.enable();
+    // 1) 모든 옵저버/채팅 즉시 정지
+    window._srmChat?._stopChatLayoutObserver();
+    window._srmChat?._stopChatScrollController();
+    window._srmActions?._stopActionStateSync();
+    if (window._srmChat) {
+      window._srmChat._chatVisible = false;
+      window._srmChat._setChatState(false);
     }
 
-    const info = await this.adapter.getStreamerInfo();
-    RadioOverlayUI.updateInfo(info);
+    // 2) 현재 라디오 모드 완전 해제 (오버레이 제거, 대역폭 복원)
+    await this._disableInternal();
+
+    // 3) SOOP이 새 방송 데이터를 로드할 때까지 대기
+    //    document.title 변경을 감지 (최대 15초)
+    const oldTitle = document.title;
+    for (let i = 0; i < 30; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      if (!this.adapter) return;
+      if (document.title !== oldTitle) break;
+    }
+    // title 변경 후 추가 안정화 대기
+    await new Promise((r) => setTimeout(r, 1000));
+    if (!this.adapter) return;
+
+    // 4) 라디오 모드 재활성화 (새 비디오, 새 스트리머 정보, 새 오버레이)
+    await this._enableInternal();
   }
 
   _setVolume(vol) {
@@ -379,3 +410,39 @@ class RadioModeCore {
 }
 
 window.__radioModeCore = new RadioModeCore();
+
+/**
+ * 로컬 키보드 단축키 핸들러
+ * SOOP 페이지에서만 동작 (content script 스코프)
+ */
+(() => {
+  let shortcutsEnabled = true;
+
+  chrome.storage.local.get(['shortcutsEnabled'], (result) => {
+    shortcutsEnabled = result.shortcutsEnabled !== false;
+  });
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.shortcutsEnabled !== undefined) {
+      shortcutsEnabled = changes.shortcutsEnabled.newValue !== false;
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!shortcutsEnabled) return;
+    if (!e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) return;
+
+    const key = e.key.toLowerCase();
+
+    if (key === 'r') {
+      e.preventDefault();
+      window.__radioModeCore?.toggle();
+    } else if (key === 'b') {
+      e.preventDefault();
+      chrome.runtime.sendMessage({ action: 'toggle-boss' }).catch(() => {});
+    } else if (key === 'm') {
+      e.preventDefault();
+      chrome.runtime.sendMessage({ action: 'toggle-minimize' }).catch(() => {});
+    }
+  });
+})();

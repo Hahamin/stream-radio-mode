@@ -15,6 +15,11 @@ window._srmActions = {
     this._syncActionState(overlay);
 
     this._actionObserver = new MutationObserver(() => {
+      // SPA 네비게이션으로 overlay가 DOM에서 분리되면 즉시 정지
+      if (!overlay.isConnected) {
+        this._stopActionStateSync();
+        return;
+      }
       this._scheduleActionStateSync(overlay);
     });
 

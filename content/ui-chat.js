@@ -113,6 +113,13 @@ window._srmChat = {
     window.addEventListener('resize', this._chatResizeHandler);
 
     this._chatLayoutObserver = new MutationObserver(() => {
+      // SPA 네비게이션으로 chatEl이 DOM에서 분리되면 즉시 정지
+      if (!chatEl.isConnected) {
+        this._stopChatLayoutObserver();
+        this._stopChatScrollController();
+        this._releaseFloatingLayers(chatEl);
+        return;
+      }
       this._scheduleChatLayoutSync(chatEl);
     });
 
@@ -145,9 +152,21 @@ window._srmChat = {
 
   _scheduleChatLayoutSync(chatEl) {
     if (!chatEl || !this._chatVisible || this._chatLayoutFrame) return;
+    // SPA 네비게이션 가드
+    if (!chatEl.isConnected) {
+      this._stopChatLayoutObserver();
+      this._stopChatScrollController();
+      return;
+    }
 
     this._chatLayoutFrame = requestAnimationFrame(() => {
       this._chatLayoutFrame = 0;
+      // rAF 실행 시점에도 재확인
+      if (!chatEl.isConnected) {
+        this._stopChatLayoutObserver();
+        this._stopChatScrollController();
+        return;
+      }
 
       // SOOP이 인라인 height를 덮어쓰면 전체 체인 강제 복원
       if (chatEl.classList.contains('srm-chat-embedded')) {

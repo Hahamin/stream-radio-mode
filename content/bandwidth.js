@@ -35,8 +35,7 @@ const BandwidthSaver = {
   },
 
   _isPlayerDocument() {
-    return location.hostname === 'vod.sooplive.co.kr'
-      && location.pathname.startsWith('/player/');
+    return location.hostname.includes('sooplive.co.kr');
   },
 
   _broadcastToPlayerFrames(action) {
