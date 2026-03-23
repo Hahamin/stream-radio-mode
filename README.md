@@ -4,7 +4,7 @@
 
 ### Stream Radio Mode for SOOP (AfreecaTV)
 
-[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://github.com/)
+[![Chrome Web Store](https://img.shields.io/badge/Chrome-Web%20Store-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-34A853?style=for-the-badge)](https://developer.chrome.com/docs/extensions/mv3/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
@@ -13,7 +13,7 @@
 숲(SOOP, 구 아프리카TV) PC 라이브 방송을 라디오처럼 들을 수 있는 크롬 확장 프로그램입니다.<br>
 라디오 모드 · 루팡 모드(탭 위장) · 대역폭 자동 절약
 
-[설치 방법](#-설치-방법) · [기능 소개](#-기능-소개) · [단축키](#-단축키) · [FAQ](#-faq)
+[Chrome Web Store에서 설치](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo) · [설치 방법](#-설치-방법) · [기능 소개](#-기능-소개) · [단축키](#-단축키) · [FAQ](#-faq)
 
 </div>
 
@@ -117,9 +117,21 @@
 
 ## 🚀 설치 방법
 
-> Chrome Web Store 등록 전이므로 수동 설치가 필요합니다.
+Chrome에서 바로 설치하려면 Chrome Web Store를 이용하세요. 개발 중이거나 최신 소스를 직접 테스트하고 싶다면 아래 수동 설치 방법도 사용할 수 있습니다.
 
-### 1단계: 다운로드
+### 1단계: Chrome Web Store 설치
+
+1. [**Chrome Web Store - Stream Radio Mode**](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo) 페이지로 이동
+2. **"Chrome에 추가"** 클릭
+3. 설치 후 [숲(SOOP)](https://www.sooplive.co.kr/) 라이브 방송 페이지에서 사용
+
+### 2단계: 사용
+
+1. [숲(SOOP)](https://www.sooplive.co.kr/) 라이브 방송 접속
+2. 플레이어 좌하단 **🎧 버튼** 클릭 또는 **Alt+R**
+3. 필요하면 **Alt+B** 로 루팡 모드까지 바로 사용
+
+### 3단계: 수동 설치 (개발/테스트용)
 
 ```bash
 git clone https://github.com/Hahamin/stream-radio-mode.git
@@ -127,18 +139,10 @@ git clone https://github.com/Hahamin/stream-radio-mode.git
 
 또는 [**Download ZIP**](https://github.com/Hahamin/stream-radio-mode/archive/refs/heads/main.zip) 을 클릭하여 압축 파일을 다운로드 후 압축 해제합니다.
 
-### 2단계: 크롬에 설치
-
 1. 크롬 주소창에 `chrome://extensions/` 입력
 2. 우측 상단의 **개발자 모드** 활성화
 3. **"압축 해제된 확장 프로그램을 로드합니다"** 클릭
 4. 다운로드한 `stream-radio-mode` 폴더 선택
-
-
-### 3단계: 사용
-
-1. [숲(SOOP)](https://www.sooplive.co.kr/) 라이브 방송 접속
-2. 플레이어 좌하단 **🎧 버튼** 클릭 또는 **Alt+R**
 
 <p align="center">
   <img src="docs/player-button.png" width="600" alt="플레이어 버튼">
