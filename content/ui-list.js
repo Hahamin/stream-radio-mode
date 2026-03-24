@@ -6,7 +6,6 @@ window._srmList = {
   _listVisible: true,
   _listTabHandler: null,
   _listCloseBtnHandler: null,
-  _listRefreshBtnHandler: null,
   _boundListArea: null,
   _navInterceptHandler: null,
   _filterHandlers: [],
@@ -244,24 +243,16 @@ window._srmList = {
 
     if (this._boundListArea && this._boundListArea !== listArea) {
       const oldCloseBtn = this._boundListArea.querySelector('.area_header .close a');
-      const oldRefreshBtn = this._boundListArea.querySelector('.area_header .refresh a');
       if (this._listCloseBtnHandler) {
         oldCloseBtn?.removeEventListener('click', this._listCloseBtnHandler, true);
-      }
-      if (this._listRefreshBtnHandler) {
-        oldRefreshBtn?.removeEventListener('click', this._listRefreshBtnHandler, true);
       }
     }
 
     const closeBtn = listArea.querySelector('.area_header .close a');
-    const refreshBtn = listArea.querySelector('.area_header .refresh a');
-    if (!closeBtn && !refreshBtn) return;
+    if (!closeBtn) return;
 
     if (closeBtn && this._listCloseBtnHandler && this._boundListArea === listArea) {
       closeBtn.removeEventListener('click', this._listCloseBtnHandler, true);
-    }
-    if (refreshBtn && this._listRefreshBtnHandler && this._boundListArea === listArea) {
-      refreshBtn.removeEventListener('click', this._listRefreshBtnHandler, true);
     }
 
     this._listCloseBtnHandler = (e) => {
@@ -277,18 +268,7 @@ window._srmList = {
       this._hideListPanel(chatEl);
     };
 
-    this._listRefreshBtnHandler = (e) => {
-      e.preventDefault(); // href="#n" 해시 네비게이션 차단
-      // stopImmediatePropagation 안 함 → SOOP의 새로고침 핸들러 실행 허용
-      this._listVisible = true;
-      this._listPanelShown = false;
-      // SOOP 새로고침 완료 후 패널 재동기화
-      window.setTimeout(() => this._showListPanel(chatEl), 300);
-      window.setTimeout(() => this._showListPanel(chatEl), 800);
-    };
-
     closeBtn?.addEventListener('click', this._listCloseBtnHandler, true);
-    refreshBtn?.addEventListener('click', this._listRefreshBtnHandler, true);
     this._boundListArea = listArea;
   },
 
@@ -296,16 +276,11 @@ window._srmList = {
     if (!this._boundListArea) return;
 
     const closeBtn = this._boundListArea.querySelector('.area_header .close a');
-    const refreshBtn = this._boundListArea.querySelector('.area_header .refresh a');
     if (this._listCloseBtnHandler) {
       closeBtn?.removeEventListener('click', this._listCloseBtnHandler, true);
     }
-    if (this._listRefreshBtnHandler) {
-      refreshBtn?.removeEventListener('click', this._listRefreshBtnHandler, true);
-    }
     this._boundListArea = null;
     this._listCloseBtnHandler = null;
-    this._listRefreshBtnHandler = null;
   },
 
   _getCurrentListFilter(listArea) {

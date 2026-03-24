@@ -1,7 +1,7 @@
 /**
  * Stream Radio Mode — 플레이어 프레임 브리지
  *
- * vod.sooplive.co.kr/player/* 프레임 안에서 page-context 스크립트를 주입하고
+ * vod.sooplive.com/player/* 프레임 안에서 page-context 스크립트를 주입하고
  * 부모 문서가 보내는 대역폭 절약 메시지를 실제 플레이어 컨텍스트로 전달한다.
  */
 

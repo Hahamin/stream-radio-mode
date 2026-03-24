@@ -534,6 +534,7 @@
   min-height: 0 !important;
 }
 
+
 .srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"] .area_header {
   background: var(--srm-bg-header) !important;
   flex-shrink: 0 !important;
@@ -705,10 +706,13 @@
   overflow: visible !important;
 }
 
+.srm-chat-embedded.srm-chat-embedded .area_header > ul > li.refresh {
+  display: none !important;
+}
+
 .srm-chat-embedded.srm-chat-embedded .chat_title > ul > li.viewer,
 .srm-chat-embedded.srm-chat-embedded .chat_title > ul > li.set,
 .srm-chat-embedded.srm-chat-embedded .chat_title > ul > li.close,
-.srm-chat-embedded.srm-chat-embedded .area_header > ul > li.refresh,
 .srm-chat-embedded.srm-chat-embedded .area_header > ul > li.close {
   width: 38px !important;
   height: 38px !important;
@@ -728,7 +732,6 @@
 .srm-chat-embedded.srm-chat-embedded .chat_title > ul > li.viewer > a,
 .srm-chat-embedded.srm-chat-embedded .chat_title > ul > li.set > a,
 .srm-chat-embedded.srm-chat-embedded .chat_title > ul > li.close > a,
-.srm-chat-embedded.srm-chat-embedded .area_header > ul > li.refresh > a,
 .srm-chat-embedded.srm-chat-embedded .area_header > ul > li.close > a {
   width: 38px !important;
   height: 38px !important;
@@ -1155,7 +1158,10 @@
   position: static !important;
 }
 
-.srm-chat-floating-layer .area_header > ul > li.refresh,
+.srm-chat-floating-layer .area_header > ul > li.refresh {
+  display: none !important;
+}
+
 .srm-chat-floating-layer .area_header > ul > li.close {
   position: static !important;
   left: auto !important;
@@ -1176,7 +1182,6 @@
   line-height: 0 !important;
 }
 
-.srm-chat-floating-layer .area_header > ul > li.refresh > a,
 .srm-chat-floating-layer .area_header > ul > li.close > a {
   width: 38px !important;
   height: 38px !important;

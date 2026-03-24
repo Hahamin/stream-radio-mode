@@ -1,6 +1,6 @@
 /**
  * Stream Radio Mode — 숲(SOOP) 어댑터
- * sooplive.co.kr 라이브 스트리밍 전용
+ * sooplive.com (구 sooplive.co.kr) 라이브 스트리밍 전용
  *
  * 실제 DOM 구조 (2026-03 확인):
  *   #webplayer > #webplayer_contents
@@ -23,9 +23,10 @@ class SoopAdapter {
    */
   isLivePage() {
     const url = location.href;
-    return url.includes('play.sooplive.co.kr/')
+    return (url.includes('play.sooplive.co.kr/') || url.includes('play.sooplive.com/'))
       && !url.endsWith('/live/all')
       && !url.endsWith('sooplive.co.kr/')
+      && !url.endsWith('sooplive.com/')
       && !url.includes('/directory/');
   }
 
@@ -208,7 +209,7 @@ class SoopAdapter {
 
 // 어댑터 등록
 (() => {
-  if (!location.hostname.includes('sooplive.co.kr')) return;
+  if (!location.hostname.includes('sooplive.co.kr') && !location.hostname.includes('sooplive.com')) return;
 
   let adapter = null;
 

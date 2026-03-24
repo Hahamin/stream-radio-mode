@@ -35,11 +35,11 @@ const BandwidthSaver = {
   },
 
   _isPlayerDocument() {
-    return location.hostname.includes('sooplive.co.kr');
+    return location.hostname.includes('sooplive.co.kr') || location.hostname.includes('sooplive.com');
   },
 
   _broadcastToPlayerFrames(action) {
-    const playerFrames = document.querySelectorAll('iframe[src*="vod.sooplive.co.kr/player/"]');
+    const playerFrames = document.querySelectorAll('iframe[src*="vod.sooplive.co.kr/player/"], iframe[src*="vod.sooplive.com/player/"]');
     playerFrames.forEach((frame) => {
       try {
         frame.contentWindow?.postMessage({ type: 'srm-bandwidth-bridge', action }, '*');

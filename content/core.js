@@ -319,9 +319,15 @@ class RadioModeCore {
   }
 
   _checkUrlChange() {
-    if (location.href !== this._lastUrl) {
+    // 해시만 변경된 경우(#n 등)는 무시 — 리스트 새로고침 등에서 발생
+    const stripHash = (url) => url.replace(/#.*$/, '');
+    const current = stripHash(location.href);
+    const last = stripHash(this._lastUrl);
+    if (current !== last) {
       this._lastUrl = location.href;
       this._onUrlChanged();
+    } else {
+      this._lastUrl = location.href;
     }
   }
 
