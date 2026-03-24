@@ -47,7 +47,7 @@ Install it directly from the [Chrome Web Store](https://chromewebstore.google.co
 git clone https://github.com/Hahamin/stream-radio-mode.git
 ```
 
-Or download the source as a [ZIP archive](https://github.com/Hahamin/stream-radio-mode/archive/refs/heads/main.zip) and extract it.
+Or download the latest release as a [ZIP archive](https://github.com/Hahamin/stream-radio-mode/releases/latest/download/stream-radio-mode.zip) and extract it.
 
 1. Go to `chrome://extensions/`
 2. Enable **Developer mode**

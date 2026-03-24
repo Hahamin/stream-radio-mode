@@ -137,7 +137,7 @@ Chrome에서 바로 설치하려면 Chrome Web Store를 이용하세요. 개발 
 git clone https://github.com/Hahamin/stream-radio-mode.git
 ```
 
-또는 [**Download ZIP**](https://github.com/Hahamin/stream-radio-mode/archive/refs/heads/main.zip) 을 클릭하여 압축 파일을 다운로드 후 압축 해제합니다.
+또는 [**Download ZIP**](https://github.com/Hahamin/stream-radio-mode/releases/latest/download/stream-radio-mode.zip) 을 클릭하여 최신 릴리즈 압축 파일을 다운로드 후 압축 해제합니다.
 
 1. 크롬 주소창에 `chrome://extensions/` 입력
 2. 우측 상단의 **개발자 모드** 활성화
