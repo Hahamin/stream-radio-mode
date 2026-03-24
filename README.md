@@ -123,11 +123,11 @@ Chrome에서 바로 설치하려면 Chrome Web Store를 이용하세요. 개발 
 
 1. [**Chrome Web Store - Stream Radio Mode**](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo) 페이지로 이동
 2. **"Chrome에 추가"** 클릭
-3. 설치 후 [숲(SOOP)](https://www.sooplive.co.kr/) 라이브 방송 페이지에서 사용
+3. 설치 후 [숲(SOOP)](https://www.sooplive.com/) 라이브 방송 페이지에서 사용
 
 ### 2단계: 사용
 
-1. [숲(SOOP)](https://www.sooplive.co.kr/) 라이브 방송 접속
+1. [숲(SOOP)](https://www.sooplive.com/) 라이브 방송 접속
 2. 플레이어 좌하단 **🎧 버튼** 클릭 또는 **Alt+R**
 3. 필요하면 **Alt+B** 로 루팡 모드까지 바로 사용
 
@@ -160,6 +160,7 @@ git clone https://github.com/Hahamin/stream-radio-mode.git
 |:---:|:---|
 | `Alt` + `R` | 라디오 모드 토글 |
 | `Alt` + `B` | 루팡 모드 토글 |
+| `Alt` + `M` | 최소화 모드 토글 |
 
 > 단축키는 `chrome://extensions/shortcuts` 에서 변경할 수 있습니다.
 
@@ -173,9 +174,14 @@ stream-radio-mode/
 ├── content/
 │   ├── core.js                # 라디오 모드 엔진
 │   ├── ui.js                  # 오버레이 UI
+│   ├── ui-actions.js          # 즐겨찾기/좋아요 동기화
+│   ├── ui-chat.js             # 채팅 패널
+│   ├── ui-list.js             # 리스트 패널
+│   ├── ui-dark-theme.js       # 다크 테마
 │   ├── boss.js                # 루팡 모드 (탭 위장)
 │   ├── bandwidth.js           # 대역폭 절약 (content script)
 │   ├── bandwidth-inject.js    # 대역폭 절약 (page context)
+│   ├── bandwidth-frame.js     # VOD 프레임 브리지
 │   └── soop.js                # 숲(SOOP) 어댑터
 ├── popup/                     # 확장 팝업 UI
 ├── background/
