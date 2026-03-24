@@ -150,10 +150,12 @@ window._srmDarkTheme = {
         min-height: 100% !important;
         overflow: visible !important;
       }
+      ${s} .area_header > ul > li.refresh {
+        display: none !important;
+      }
       ${s} .chat_title > ul > li.viewer,
       ${s} .chat_title > ul > li.set,
       ${s} .chat_title > ul > li.close,
-      ${s} .area_header > ul > li.refresh,
       ${s} .area_header > ul > li.close {
         width: 38px !important;
         height: 38px !important;
@@ -172,7 +174,6 @@ window._srmDarkTheme = {
       ${s} .chat_title > ul > li.viewer > a,
       ${s} .chat_title > ul > li.set > a,
       ${s} .chat_title > ul > li.close > a,
-      ${s} .area_header > ul > li.refresh > a,
       ${s} .area_header > ul > li.close > a {
         width: 38px !important;
         height: 38px !important;

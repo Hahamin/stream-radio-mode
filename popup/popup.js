@@ -15,7 +15,7 @@ const statusDot = $('#statusDot');
 const statusText = $('#statusText');
 
 function isSoopTab(tab) {
-  return Boolean(tab?.url && /:\/\/([^/]+\.)?sooplive\.co\.kr\//.test(tab.url));
+  return Boolean(tab?.url && /:\/\/([^/]+\.)?sooplive\.(co\.kr|com)\//.test(tab.url));
 }
 
 async function init() {

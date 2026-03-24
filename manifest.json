@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Stream Radio Mode",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "숲(SOOP) 라이브 스트리밍 라디오 모드 — 오디오만 재생하여 시스템 리소스 절약",
   "permissions": ["storage", "activeTab", "tabs"],
   "content_scripts": [
     {
-      "matches": ["*://*.sooplive.co.kr/*"],
+      "matches": ["*://*.sooplive.co.kr/*", "*://*.sooplive.com/*"],
       "js": [
         "content/ui-dark-theme.js",
         "content/ui-actions.js",
@@ -23,7 +23,7 @@
       "all_frames": false
     },
     {
-      "matches": ["*://vod.sooplive.co.kr/player/*"],
+      "matches": ["*://vod.sooplive.co.kr/player/*", "*://vod.sooplive.com/player/*"],
       "js": ["content/bandwidth-frame.js"],
       "run_at": "document_idle",
       "all_frames": true
@@ -49,7 +49,7 @@
   "web_accessible_resources": [
     {
       "resources": ["content/bandwidth-inject.js"],
-      "matches": ["*://*.sooplive.co.kr/*"]
+      "matches": ["*://*.sooplive.co.kr/*", "*://*.sooplive.com/*"]
     }
   ]
 }
