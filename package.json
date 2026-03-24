@@ -1,4 +1,11 @@
 {
+  "scripts": {
+    "cws:package": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action package",
+    "cws:status": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action status",
+    "cws:upload": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action upload",
+    "cws:publish": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action publish",
+    "cws:release": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action release"
+  },
   "devDependencies": {
     "playwright": "^1.58.2"
   }
