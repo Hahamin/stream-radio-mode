@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <div class="header">
+      <span class="logo">🎧</span>
+      <h1>Stream Radio Mode</h1>
+    </div>
+
+    <div class="status" id="status">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">감지 중...</span>
+    </div>
+
+    <div class="section">
+      <div class="setting-row">
+        <div class="setting-label">
+          <span class="setting-title">라디오 모드</span>
+          <span class="setting-desc">현재 탭에서 오디오만 재생</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="radioToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label">
+          <span class="setting-title">자동 활성화</span>
+          <span class="setting-desc">방송 접속 시 자동으로 라디오 모드</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="autoRadio">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row boss-row">
+        <div class="setting-label">
+          <span class="setting-title">🕶 루팡 모드</span>
+          <span class="setting-desc">탭 위장 + 탭 전환 (오디오 유지)</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="bossToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row minimize-row">
+        <div class="setting-label">
+          <span class="setting-title">📦 최소화 모드</span>
+          <span class="setting-desc">창 최소화 (오디오 유지)</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="minimizeToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="section sites">
+      <div class="section-title">지원 사이트</div>
+      <div class="site-row">
+        <label class="site-check">
+          <input type="checkbox" id="enableSoop" checked>
+          <span>숲 (sooplive.co.kr)</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="section shortcut-section">
+      <div class="setting-row">
+        <div class="setting-label">
+          <span class="setting-title">⌨ 단축키</span>
+          <span class="setting-desc">SOOP 방송 페이지에서만 동작</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="shortcutsToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="shortcut-keys" id="shortcutKeys">
+        <kbd>Alt</kbd>+<kbd>R</kbd> 라디오 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>B</kbd> 루팡 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>M</kbd> 최소화
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,1578 @@
+/* Stream Radio Mode — 오버레이 스타일 */
+
+.srm-overlay,
+.srm-chat-embedded,
+.srm-list-panel,
+.srm-chat-floating-layer {
+  --srm-bg: #16213e;
+  --srm-bg-header: #1a1a2e;
+  --srm-bg-header-muted: #151d30;
+  --srm-text: #c8d6e5;
+  --srm-text-soft: rgba(255, 255, 255, 0.6);
+  --srm-text-dim: rgba(255, 255, 255, 0.5);
+  --srm-border: rgba(100, 140, 255, 0.12);
+  --srm-border-soft: rgba(100, 140, 255, 0.16);
+  --srm-border-strong: rgba(100, 140, 255, 0.22);
+  --srm-border-hover: rgba(100, 140, 255, 0.40);
+  --srm-chip-bg: rgba(100, 140, 255, 0.10);
+  --srm-chip-bg-hover: rgba(100, 140, 255, 0.20);
+  --srm-chip-text: #a8c4e8;
+  --srm-chip-text-hover: #dbeafe;
+  --srm-shadow: 0 24px 48px rgba(4, 10, 24, 0.35);
+}
+
+.srm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, var(--srm-bg-header) 0%, var(--srm-bg) 50%, #0f3460 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  color: var(--srm-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* 라디오 콘텐츠 래퍼 */
+.srm-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  min-width: 0;
+}
+
+/* 배경 애니메이션 - 음파 효과 */
+.srm-overlay::before {
+  content: '';
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  border: 2px solid rgba(100, 140, 255, 0.1);
+  animation: srm-pulse 3s ease-in-out infinite;
+}
+
+.srm-overlay::after {
+  content: '';
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  border: 2px solid rgba(100, 140, 255, 0.05);
+  animation: srm-pulse 3s ease-in-out infinite 1s;
+}
+
+@keyframes srm-pulse {
+  0%, 100% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.2); opacity: 1; }
+}
+
+/* 라디오 아이콘 */
+.srm-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: srm-bounce 2s ease-in-out infinite;
+}
+
+@keyframes srm-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* 라디오 모드 레이블 */
+.srm-label {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(100, 140, 255, 0.9);
+  margin-bottom: 24px;
+}
+
+/* 스트리머 정보 */
+.srm-streamer-info {
+  text-align: center;
+  margin-bottom: 32px;
+  z-index: 1;
+}
+
+.srm-streamer-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 3px solid rgba(100, 140, 255, 0.5);
+  margin-bottom: 12px;
+  object-fit: cover;
+}
+
+.srm-streamer-avatar.srm-no-avatar {
+  background: linear-gradient(135deg, #648cff, #5a67d8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: white;
+}
+
+.srm-streamer-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.srm-stream-title {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.srm-stream-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.srm-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.srm-stat-sep {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.srm-stat-live {
+  color: #ff5c5c;
+  font-weight: 600;
+}
+
+/* 액션 버튼 바 (즐찾, 좋아요, 채팅) */
+.srm-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  z-index: 1;
+}
+
+.srm-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 14px;
+  min-width: 90px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  color: #e0e0e0;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.srm-action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.srm-action-btn:active {
+  transform: scale(0.95);
+}
+
+.srm-action-btn.srm-pending {
+  opacity: 0.72;
+  border-color: rgba(126, 168, 247, 0.45);
+  background: var(--srm-chip-bg-hover);
+  cursor: progress;
+}
+
+.srm-action-btn.srm-pending .srm-action-count {
+  color: rgba(219, 234, 254, 0.82);
+}
+
+.srm-action-count {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* 볼륨 컨트롤 */
+.srm-volume-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+  z-index: 1;
+}
+
+.srm-volume-icon {
+  font-size: 20px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.srm-volume-icon:hover {
+  color: #648cff;
+}
+
+.srm-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 200px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.srm-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #648cff;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.srm-volume-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.3);
+}
+
+.srm-volume-value {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  min-width: 35px;
+  text-align: right;
+}
+
+/* 비디오 모드 전환 버튼 */
+.srm-switch-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: rgba(100, 140, 255, 0.15);
+  border: 1px solid rgba(100, 140, 255, 0.3);
+  border-radius: 24px;
+  color: #648cff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 1;
+}
+
+.srm-switch-btn:hover {
+  background: rgba(100, 140, 255, 0.25);
+  border-color: rgba(100, 140, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.srm-switch-btn:active {
+  transform: translateY(0);
+}
+
+/* 버튼 그룹 */
+.srm-btn-group {
+  display: flex;
+  gap: 10px;
+  z-index: 1;
+}
+
+/* 루팡 모드 버튼 */
+.srm-boss-btn {
+  background: rgba(229, 62, 62, 0.15) !important;
+  border-color: rgba(229, 62, 62, 0.3) !important;
+  color: #fc8181 !important;
+}
+
+.srm-boss-btn:hover {
+  background: rgba(229, 62, 62, 0.25) !important;
+  border-color: rgba(229, 62, 62, 0.5) !important;
+}
+
+/* 오디오 시각화 바 */
+.srm-visualizer {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 40px;
+  margin-bottom: 20px;
+  z-index: 1;
+}
+
+.srm-viz-bar {
+  width: 4px;
+  background: linear-gradient(to top, #648cff, #a78bfa);
+  border-radius: 2px;
+  animation: srm-viz-dance var(--srm-bar-speed, 1s) ease-in-out infinite alternate;
+}
+
+@keyframes srm-viz-dance {
+  0% { height: var(--srm-bar-min, 6px); }
+  100% { height: var(--srm-bar-max, 30px); }
+}
+
+/* 플레이어 내 토글 버튼 */
+.srm-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s;
+  position: relative;
+}
+
+.srm-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.srm-toggle-btn.srm-active {
+  color: #648cff;
+}
+
+.srm-toggle-btn .srm-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  font-size: 12px;
+  border-radius: 4px;
+  white-space: nowrap;
+  margin-bottom: 6px;
+}
+
+.srm-toggle-btn:hover .srm-tooltip {
+  display: block;
+}
+
+/* ── 채팅 내장 모드 ── */
+
+/* 채팅이 오버레이 안에 있을 때 — 오른쪽에 고정 (리스트 패널과 동일한 스타일) */
+.srm-chat-embedded {
+  position: fixed !important;
+  top: 12px !important;
+  right: 12px !important;
+  width: 360px !important;
+  height: calc(100vh - 24px) !important;
+  --srm-panel-header-height: 56px;
+  background: var(--srm-bg) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  border-radius: 16px !important;
+  z-index: 10001 !important;
+}
+
+/* 임베디드 채팅 내부 요소가 전체 높이를 채우도록 */
+.srm-chat-embedded #chatting_area {
+  height: 100% !important;
+  flex: 1 !important;
+}
+.srm-chat-embedded #chatbox {
+  height: 100% !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.srm-chat-embedded .chatting-item-wrap {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-end !important;
+}
+.srm-chat-embedded .chatting-item-wrap #chat_area {
+  margin-top: auto !important;
+}
+.srm-chat-embedded .move_handle {
+  display: none !important;
+}
+
+/* 채팅 참여 인원, 설정 등 플로팅 레이어 — 채팅 패널 왼쪽에 표시 */
+.srm-chat-embedded .chat_layer {
+  position: fixed !important;
+  top: 12px !important;
+  right: 384px !important;
+  width: 320px !important;
+  height: calc(100vh - 24px) !important;
+  z-index: 10010 !important;
+  background: var(--srm-bg, #16213e) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(100, 140, 255, 0.1) !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* 플로팅 레이어 헤더 — h2가 flex로 비정상 팽창하므로 강제 수정 */
+.srm-chat-embedded .chat_layer .area_header {
+  padding: 10px 16px !important;
+  min-height: 0 !important;
+  max-height: 50px !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+}
+.srm-chat-embedded .chat_layer .area_header h2 {
+  height: auto !important;
+  max-height: 30px !important;
+  font-size: 15px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 30px !important;
+  overflow: hidden !important;
+}
+
+/* 플로팅 레이어 콘텐츠 — 스크롤 가능 */
+.srm-chat-embedded .chat_layer #userList,
+.srm-chat-embedded .chat_layer > .contents {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+}
+
+/* 스크롤바 스타일 — 채팅, 리스트, 참여인원 전부 동일 */
+.srm-chat-embedded ::-webkit-scrollbar {
+  width: 6px !important;
+}
+.srm-chat-embedded ::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+.srm-chat-embedded ::-webkit-scrollbar-thumb {
+  background: rgba(100, 140, 255, 0.3) !important;
+  border-radius: 3px !important;
+}
+.srm-chat-embedded ::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 140, 255, 0.5) !important;
+}
+
+.srm-chat-embedded.srm-chat-shell-hidden {
+  width: 0 !important;
+  min-width: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.srm-chat-embedded.srm-chat-shell-hidden > :not(.srm-list-docked[data-srm-list-root="1"]) {
+  display: none !important;
+}
+
+/* 내부 섹션 래퍼 (section.box) — 탭 전환 시 하나만 보임 */
+.srm-chat-embedded > section.box {
+  flex: 1 !important;
+  overflow: hidden !important;
+  min-height: 0 !important;
+}
+
+/* 리스트 패널 — 채팅 아래에 쌓이지 않도록 레이아웃에서 제거 */
+.srm-chat-embedded .list_box.srm-list-docked {
+  position: fixed !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+/* 리스트가 활성화되면 보이게 */
+.srm-chat-embedded.srm-list-open .list_box.srm-list-docked[data-srm-list-root="1"] {
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+.srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"] {
+  position: fixed !important;
+  top: 16px !important;
+  left: 16px !important;
+  width: clamp(320px, 34vw, 460px) !important;
+  max-width: calc(100vw - 32px) !important;
+  height: calc(100vh - 32px) !important;
+  background: var(--srm-bg) !important;
+  border: 1px solid var(--srm-border) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  border-radius: 24px !important;
+  box-shadow: var(--srm-shadow) !important;
+  z-index: 10002 !important;
+  min-height: 0 !important;
+}
+
+.srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"] .area_header {
+  background: var(--srm-bg-header) !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  min-height: var(--srm-panel-header-height) !important;
+  height: var(--srm-panel-header-height) !important;
+  padding: 0 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  border-radius: 24px 24px 0 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  border-bottom: none !important;
+  box-shadow: inset 0 -1px 0 var(--srm-border-soft) !important;
+}
+
+.srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"] .section_selectTab {
+  background: var(--srm-bg-header) !important;
+  flex-shrink: 0 !important;
+}
+
+.srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"]#list_area,
+.srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"] #list_area {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+.srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"] .filter_list {
+  flex-shrink: 0 !important;
+}
+
+.srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"] .list_contents,
+.srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"] #list-container {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+/* 리스트 패널 내 태그/칩 — 왼쪽 정렬, 작은 크기, 최대 3개 */
+.srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"] .tag_wrap {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  gap: 4px !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"] .tag_wrap > * {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 0 !important;
+  height: 24px !important;
+  line-height: 24px !important;
+  padding: 0 8px !important;
+  box-sizing: border-box !important;
+  background: var(--srm-chip-bg) !important;
+  background-color: var(--srm-chip-bg) !important;
+  border: 1px solid var(--srm-border-strong) !important;
+  border-radius: 999px !important;
+  color: var(--srm-chip-text) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  margin: 0 !important;
+  transition: background 0.18s, border-color 0.18s !important;
+}
+
+/* 4번째 이후 자식 숨김 — 최대 3개 */
+.srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"] .tag_wrap > *:nth-child(n+4) {
+  display: none !important;
+}
+
+.srm-chat-embedded.srm-list-open .srm-list-docked[data-srm-list-root="1"] .tag_wrap > *:hover {
+  background: var(--srm-chip-bg-hover) !important;
+  background-color: var(--srm-chip-bg-hover) !important;
+  border-color: var(--srm-border-hover) !important;
+  color: var(--srm-chip-text-hover) !important;
+}
+
+/* 기본 텍스트 — 반복 클래스로 specificity 최대화 (SOOP CSS 오버라이드) */
+.srm-chat-embedded.srm-chat-embedded,
+.srm-chat-embedded.srm-chat-embedded * {
+  color: var(--srm-text) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* 헤더 (채팅/리스트 탭 영역) — 배경 완전 통일 */
+.srm-chat-embedded.srm-chat-embedded .section_selectTab,
+.srm-chat-embedded.srm-chat-embedded .area_header,
+.srm-chat-embedded.srm-chat-embedded .chat_title {
+  background: var(--srm-bg-header) !important;
+  background-color: var(--srm-bg-header) !important;
+  background-image: none !important;
+}
+
+/* 채팅 헤더 내부 자식 요소 배경 초기화 — SOOP 원본 배경 제거 */
+.srm-chat-embedded.srm-chat-embedded .chat_title *,
+.srm-chat-embedded.srm-chat-embedded .area_header * {
+  background-color: transparent !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded .chat_title,
+.srm-chat-embedded.srm-chat-embedded .area_header {
+  min-height: var(--srm-panel-header-height) !important;
+  height: var(--srm-panel-header-height) !important;
+  width: 100% !important;
+  flex: 1 1 auto !important;
+  padding: 0 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 4 !important;
+  border-bottom: none !important;
+  box-shadow: inset 0 -1px 0 var(--srm-border-soft) !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded .area_header > .chat_title {
+  width: 100% !important;
+  flex: 1 1 auto !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded .chat_title > h2,
+.srm-chat-embedded.srm-chat-embedded .area_header > h2 {
+  margin: 0 !important;
+  margin-right: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  min-height: 100% !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded .chat_title > a,
+.srm-chat-embedded.srm-chat-embedded .chat_title > button,
+.srm-chat-embedded.srm-chat-embedded .chat_title > [class*="tip"],
+.srm-chat-embedded.srm-chat-embedded .area_header > a,
+.srm-chat-embedded.srm-chat-embedded .area_header > button,
+.srm-chat-embedded.srm-chat-embedded .area_header > [class*="tip"] {
+  flex: 0 0 auto !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded .chat_title > ul,
+.srm-chat-embedded.srm-chat-embedded .area_header > ul {
+  margin: 0 0 0 auto !important;
+  padding: 0 !important;
+  list-style: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex: 0 0 auto !important;
+  gap: 10px !important;
+  min-height: 100% !important;
+  overflow: visible !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded .chat_title > ul > li.viewer,
+.srm-chat-embedded.srm-chat-embedded .chat_title > ul > li.set,
+.srm-chat-embedded.srm-chat-embedded .chat_title > ul > li.close,
+.srm-chat-embedded.srm-chat-embedded .area_header > ul > li.refresh,
+.srm-chat-embedded.srm-chat-embedded .area_header > ul > li.close {
+  width: 38px !important;
+  height: 38px !important;
+  flex: 0 0 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
+  position: static !important;
+  vertical-align: middle !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded .chat_title > ul > li.viewer > a,
+.srm-chat-embedded.srm-chat-embedded .chat_title > ul > li.set > a,
+.srm-chat-embedded.srm-chat-embedded .chat_title > ul > li.close > a,
+.srm-chat-embedded.srm-chat-embedded .area_header > ul > li.refresh > a,
+.srm-chat-embedded.srm-chat-embedded .area_header > ul > li.close > a {
+  width: 38px !important;
+  height: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
+  position: static !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  vertical-align: middle !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+  background-size: auto !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded .chat_title > ul > li > a[tip]::after,
+.srm-chat-embedded.srm-chat-embedded .area_header > ul > li > a[tip]::after {
+  min-width: 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  height: 30px !important;
+  line-height: 30px !important;
+  padding: 0 12px !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+  z-index: 8 !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded .chat_title > ul > li > a[tip]::before,
+.srm-chat-embedded.srm-chat-embedded .area_header > ul > li > a[tip]::before {
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+  z-index: 8 !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded .chat_title > ul > li,
+.srm-chat-embedded.srm-chat-embedded .area_header > ul > li,
+.srm-chat-embedded.srm-chat-embedded .chat_title > ul > li > a[tip],
+.srm-chat-embedded.srm-chat-embedded .area_header > ul > li > a[tip] {
+  overflow: visible !important;
+  position: relative !important;
+}
+
+/* 채팅/리스트 섹션 — 남은 공간 채우기 + 스크롤 */
+.srm-chat-embedded.srm-chat-embedded .chatting_box,
+.srm-chat-embedded.srm-chat-embedded .list_box,
+.srm-chat-embedded.srm-chat-embedded .store_box {
+  background: var(--srm-bg) !important;
+  flex: 1 !important;
+  overflow: visible !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded #chatbox,
+.srm-chat-embedded.srm-chat-embedded .chatbox,
+.srm-chat-embedded.srm-chat-embedded #chatting_area {
+  background: var(--srm-bg) !important;
+  flex: 1 !important;
+  overflow: visible !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded #chatbox,
+.srm-chat-embedded.srm-chat-embedded .chatbox {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded #chatbox > .area_header {
+  min-height: 56px !important;
+  height: auto !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  overflow: visible !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded #chatbox > .area_header > .chat_title {
+  min-height: 56px !important;
+  height: 56px !important;
+  padding: 0 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded #chatbox > .area_header > .idsearch,
+.srm-chat-embedded.srm-chat-embedded #chatbox > .area_header > .chat_topbox {
+  width: 100% !important;
+  flex: 0 0 auto !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded #chatbox > .area_header > .chat_topbox {
+  position: relative !important;
+  z-index: 2 !important;
+  overflow: hidden !important;
+}
+
+.srm-chat-embedded.srm-chat-embedded #chatbox > .area_header > .chat_topbox .chat_notice,
+.srm-chat-embedded.srm-chat-embedded #chatbox > .area_header > .chat_topbox .chat_banner2 {
+  position: relative !important;
+  min-height: 48px !important;
+  box-sizing: border-box !important;
+  flex: 0 0 auto !important;
+}
+
+.srm-chat-embedded .chatting-item-wrap {
+  position: relative !important;
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.srm-chat-embedded #chat_area,
+.srm-chat-embedded .chatting-viewer {
+  background: var(--srm-bg) !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: auto !important;
+  scrollbar-color: rgba(118, 153, 214, 0.9) rgba(28, 41, 69, 0.72) !important;
+}
+
+.srm-chat-embedded .chat_scroll_down {
+  position: absolute !important;
+  right: 12px !important;
+  bottom: 12px !important;
+  z-index: 3 !important;
+  pointer-events: none !important;
+}
+
+.srm-chat-embedded .chat_scroll_down button {
+  pointer-events: auto !important;
+}
+
+.srm-chat-embedded .chat_scroll_down #chat-bottom-preview {
+  display: block !important;
+  width: min(320px, calc(100vw - 64px)) !important;
+  margin-top: 8px !important;
+  padding: 10px 12px !important;
+  background: linear-gradient(180deg, rgba(24, 36, 64, 0.98), rgba(17, 27, 49, 0.98)) !important;
+  border: 1px solid rgba(118, 153, 214, 0.42) !important;
+  border-radius: 16px !important;
+  box-shadow:
+    0 14px 28px rgba(4, 10, 24, 0.36),
+    inset 0 1px 0 rgba(207, 228, 255, 0.06) !important;
+  backdrop-filter: blur(10px) !important;
+  color: #e7f0ff !important;
+}
+
+.srm-chat-embedded .chat_scroll_down #chat-bottom-preview .message-container {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+.srm-chat-embedded .chat_scroll_down #chat-bottom-preview .username,
+.srm-chat-embedded .chat_scroll_down #chat-bottom-preview .message-text,
+.srm-chat-embedded .chat_scroll_down #chat-bottom-preview .msg,
+.srm-chat-embedded .chat_scroll_down #chat-bottom-preview .author {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.srm-chat-embedded .chat_scroll_down #chat-bottom-preview .username {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+}
+
+.srm-chat-embedded .chat_scroll_down #chat-bottom-preview .message-text,
+.srm-chat-embedded .chat_scroll_down #chat-bottom-preview .msg {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+.srm-chat-embedded .chat_scroll_down #chat-bottom-preview #badge {
+  flex: 0 0 auto !important;
+}
+
+/* 채팅 입력창 */
+.srm-chat-embedded input,
+.srm-chat-embedded textarea {
+  background: #1a2744 !important;
+  color: #e0e0e0 !important;
+  border-color: rgba(100, 140, 255, 0.15) !important;
+}
+
+/* 닉네임 링크 */
+.srm-chat-embedded a {
+  color: #7ea8f7 !important;
+}
+
+/* 팝업 (설정, 인원 목록 등) — 흰색 배경 팝업을 다크로 */
+.srm-chat-embedded .chat_layer:not(.srm-chat-floating-layer),
+.srm-chat-embedded [class*="chat_layer"]:not(.srm-chat-floating-layer),
+.srm-chat-embedded [class*="setting"]:not(.srm-chat-floating-layer),
+.srm-chat-embedded [class*="list_viewer"]:not(.srm-chat-floating-layer),
+.srm-chat-embedded [class*="list_participant"]:not(.srm-chat-floating-layer),
+.srm-chat-embedded .layer:not(.srm-chat-floating-layer),
+.srm-chat-embedded [class*="popup"]:not(.srm-chat-floating-layer),
+.srm-chat-embedded [class*="ice"]:not(.srm-chat-floating-layer) {
+  background: #1a2744 !important;
+  color: var(--srm-text) !important;
+}
+
+/* 팝업 내 텍스트/항목 */
+.srm-chat-embedded .chat_layer:not(.srm-chat-floating-layer) *,
+.srm-chat-embedded [class*="chat_layer"]:not(.srm-chat-floating-layer) *,
+.srm-chat-embedded [class*="setting"]:not(.srm-chat-floating-layer) *,
+.srm-chat-embedded [class*="list_viewer"]:not(.srm-chat-floating-layer) *,
+.srm-chat-embedded [class*="list_participant"]:not(.srm-chat-floating-layer) *,
+.srm-chat-embedded [class*="ice"]:not(.srm-chat-floating-layer) * {
+  color: var(--srm-text) !important;
+  background-color: transparent !important;
+}
+
+/* 팝업 내 헤더/구분선 */
+.srm-chat-embedded .chat_layer:not(.srm-chat-floating-layer) .head,
+.srm-chat-embedded [class*="chat_layer"]:not(.srm-chat-floating-layer) .head {
+  background: var(--srm-bg-header-muted) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+/* 팝업 내 li/항목 hover */
+.srm-chat-embedded .chat_layer:not(.srm-chat-floating-layer) li:hover,
+.srm-chat-embedded [class*="list_participant"]:not(.srm-chat-floating-layer) li:hover {
+  background: rgba(100, 140, 255, 0.1) !important;
+}
+
+/* 팝업이 채팅 영역 밖으로 넘쳐도 보이도록 */
+.srm-chat-embedded .chat_layer:not(.srm-chat-floating-layer),
+.srm-chat-embedded [class*="chat_layer"]:not(.srm-chat-floating-layer),
+.srm-chat-embedded [class*="chatting_management"]:not(.srm-chat-floating-layer) {
+  overflow: visible !important;
+  max-height: 80vh !important;
+  overflow-y: auto !important;
+}
+
+.srm-chat-floating-layer {
+  position: fixed !important;
+  left: var(--srm-layer-left, 16px) !important;
+  top: var(--srm-layer-top, 16px) !important;
+  width: var(--srm-layer-width, 420px) !important;
+  height: var(--srm-layer-height, auto) !important;
+  max-width: calc(100vw - 32px) !important;
+  max-height: var(--srm-layer-max-height, calc(100vh - 32px)) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  box-sizing: border-box !important;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: rgba(150, 190, 255, 0.96) rgba(8, 13, 24, 0.88);
+  transform: none !important;
+  background: var(--srm-bg) !important;
+  color: var(--srm-text) !important;
+  border: 1px solid var(--srm-border) !important;
+  border-radius: 24px !important;
+  box-shadow: var(--srm-shadow) !important;
+  z-index: 10030 !important;
+}
+
+.srm-chat-floating-layer[class*="list_participant"],
+.srm-chat-floating-layer[class*="list_viewer"] {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+.srm-chat-floating-layer#list_viewer {
+  min-width: min(360px, calc(100vw - 32px)) !important;
+}
+
+.srm-chat-floating-layer .head,
+.srm-chat-floating-layer .chat_title,
+.srm-chat-floating-layer .area_header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--srm-bg-header) !important;
+  border-bottom: none !important;
+  box-shadow: inset 0 -1px 0 var(--srm-border-soft) !important;
+}
+
+.srm-chat-floating-layer button,
+.srm-chat-floating-layer [role="button"],
+.srm-chat-floating-layer a[class*="btn"],
+.srm-chat-floating-layer [class*="arrow"],
+.srm-chat-floating-layer [class*="more"] {
+  color: #dbeafe !important;
+  opacity: 1 !important;
+}
+
+.srm-chat-floating-layer [class*="arrow"],
+.srm-chat-floating-layer [class*="more"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  padding: 8px !important;
+  background: rgba(8, 13, 24, 0.58) !important;
+  border: 1px solid rgba(150, 190, 255, 0.2) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 20px rgba(4, 10, 24, 0.2) !important;
+  color: rgba(235, 244, 255, 0.94) !important;
+  transition:
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    box-shadow 0.24s ease,
+    color 0.2s ease,
+    transform 0.18s ease !important;
+}
+
+.srm-chat-floating-layer button *,
+.srm-chat-floating-layer [role="button"] *,
+.srm-chat-floating-layer a[class*="btn"] *,
+.srm-chat-floating-layer [class*="arrow"] *,
+.srm-chat-floating-layer [class*="more"] * {
+  color: inherit !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  opacity: 1 !important;
+}
+
+.srm-chat-floating-layer [class*="arrow"]::before,
+.srm-chat-floating-layer [class*="arrow"]::after,
+.srm-chat-floating-layer [class*="more"]::before,
+.srm-chat-floating-layer [class*="more"]::after {
+  color: rgba(235, 244, 255, 0.94) !important;
+  opacity: 1 !important;
+}
+
+.srm-chat-floating-layer button:hover,
+.srm-chat-floating-layer [role="button"]:hover,
+.srm-chat-floating-layer a[class*="btn"]:hover,
+.srm-chat-floating-layer [class*="arrow"]:hover,
+.srm-chat-floating-layer [class*="more"]:hover {
+  color: #ffffff !important;
+  background: rgba(33, 45, 72, 0.86) !important;
+  border-color: rgba(156, 192, 244, 0.3) !important;
+  box-shadow: 0 12px 24px rgba(5, 12, 28, 0.2) !important;
+  transform: translateY(-1px) !important;
+}
+
+.srm-chat-floating-layer[class*="list_participant"],
+.srm-chat-floating-layer[class*="list_viewer"],
+.srm-chat-floating-layer#list_viewer {
+  box-sizing: border-box !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+  scrollbar-gutter: stable;
+  scrollbar-width: none !important;
+}
+
+.srm-chat-floating-layer .area_header {
+  flex-shrink: 0 !important;
+  min-height: 56px !important;
+  height: 56px !important;
+  padding: 0 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+
+.srm-chat-floating-layer .area_header > h2 {
+  margin: 0 !important;
+  margin-right: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  min-height: 100% !important;
+}
+
+.srm-chat-floating-layer .area_header > ul {
+  margin: 0 0 0 auto !important;
+  padding: 0 !important;
+  list-style: none !important;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  height: 100% !important;
+  align-self: center !important;
+  position: static !important;
+}
+
+.srm-chat-floating-layer .area_header > ul > li.refresh,
+.srm-chat-floating-layer .area_header > ul > li.close {
+  position: static !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  width: 38px !important;
+  height: 38px !important;
+  flex: 0 0 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  vertical-align: middle !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+
+.srm-chat-floating-layer .area_header > ul > li.refresh > a,
+.srm-chat-floating-layer .area_header > ul > li.close > a {
+  width: 38px !important;
+  height: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
+  position: static !important;
+  top: auto !important;
+  transform: none !important;
+  vertical-align: middle !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+  background-size: auto !important;
+}
+
+.srm-chat-floating-layer > .contents,
+.srm-chat-floating-layer > #userList,
+.srm-chat-floating-layer > [class*="contents"] {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: auto !important;
+  scrollbar-color: rgba(118, 153, 214, 0.9) rgba(28, 41, 69, 0.72) !important;
+}
+
+.srm-chat-floating-layer#list_viewer > #userList.contents {
+  display: block !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+  padding-right: 8px !important;
+  scrollbar-gutter: stable both-edges !important;
+  scrollbar-width: auto !important;
+  scrollbar-color: rgba(118, 153, 214, 0.9) rgba(28, 41, 69, 0.72) !important;
+}
+
+.srm-chat-floating-layer #userList .effective_box,
+.srm-chat-floating-layer .contents .effective_box {
+  min-height: 100% !important;
+}
+
+.srm-chat-floating-layer > .more,
+.srm-chat-floating-layer > button.more {
+  position: relative !important;
+  display: flex !important;
+  flex-shrink: 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  margin: 8px 16px 16px !important;
+  width: calc(100% - 32px) !important;
+  align-self: center !important;
+  box-sizing: border-box !important;
+  min-height: 48px !important;
+  padding: 0 24px !important;
+  overflow: hidden !important;
+  text-align: center !important;
+  line-height: 1 !important;
+  background: linear-gradient(180deg, rgba(20, 31, 54, 0.94), rgba(16, 24, 43, 0.98)) !important;
+  border: 1px solid rgba(78, 106, 158, 0.42) !important;
+  border-radius: 28px !important;
+  box-shadow:
+    0 -1px 0 rgba(102, 136, 194, 0.24),
+    inset 0 1px 0 rgba(196, 218, 255, 0.05),
+    0 10px 24px rgba(4, 10, 24, 0.16) !important;
+  transition:
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    box-shadow 0.24s ease,
+    transform 0.18s ease,
+    filter 0.2s ease !important;
+  will-change: transform, box-shadow;
+}
+
+.srm-chat-floating-layer > .more::before,
+.srm-chat-floating-layer > .more::after,
+.srm-chat-floating-layer > button.more::before,
+.srm-chat-floating-layer > button.more::after {
+  margin: 0 !important;
+  align-self: center !important;
+}
+
+.srm-chat-floating-layer > .more > *,
+.srm-chat-floating-layer > button.more > * {
+  margin: 0 auto !important;
+  align-self: center !important;
+}
+
+.srm-chat-floating-layer > .more > span,
+.srm-chat-floating-layer > .more > i,
+.srm-chat-floating-layer > .more > em,
+.srm-chat-floating-layer > .more > svg,
+.srm-chat-floating-layer > button.more > span,
+.srm-chat-floating-layer > button.more > i,
+.srm-chat-floating-layer > button.more > em,
+.srm-chat-floating-layer > button.more > svg {
+  margin: 0 auto !important;
+}
+
+.srm-chat-floating-layer > .more:hover,
+.srm-chat-floating-layer > button.more:hover {
+  background: linear-gradient(180deg, rgba(26, 38, 64, 0.96), rgba(18, 28, 48, 1)) !important;
+  border-color: rgba(114, 148, 209, 0.5) !important;
+}
+
+.srm-chat-floating-layer > .more:active,
+.srm-chat-floating-layer > button.more:active {
+  transform: translateY(1px) scale(0.992) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(196, 218, 255, 0.04),
+    0 6px 16px rgba(4, 10, 24, 0.14) !important;
+  filter: saturate(0.96) !important;
+}
+
+.srm-chat-floating-layer::-webkit-scrollbar,
+.srm-chat-floating-layer ::-webkit-scrollbar {
+  width: 14px;
+  height: 10px;
+}
+
+.srm-chat-floating-layer::-webkit-scrollbar-track,
+.srm-chat-floating-layer ::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, rgba(32, 47, 79, 0.76), rgba(21, 33, 58, 0.8));
+  border-radius: 999px;
+}
+
+.srm-chat-floating-layer::-webkit-scrollbar-thumb,
+.srm-chat-floating-layer ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(134, 169, 229, 0.96), rgba(105, 135, 193, 0.88));
+  border: 3px solid rgba(24, 37, 64, 0.84);
+  border-radius: 999px;
+}
+
+/* 스크롤바 다크 */
+.srm-chat-embedded ::-webkit-scrollbar {
+  width: 6px;
+}
+.srm-chat-embedded ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.srm-chat-embedded ::-webkit-scrollbar-thumb {
+  background: rgba(100, 140, 255, 0.2);
+  border-radius: 3px;
+}
+
+.srm-chat-embedded #chat_area::-webkit-scrollbar,
+.srm-chat-embedded .chatting-viewer::-webkit-scrollbar {
+  width: 14px !important;
+  height: 10px !important;
+}
+
+.srm-chat-embedded #chat_area::-webkit-scrollbar-track,
+.srm-chat-embedded .chatting-viewer::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, rgba(32, 47, 79, 0.78), rgba(21, 33, 58, 0.82)) !important;
+  border-radius: 999px !important;
+}
+
+.srm-chat-embedded #chat_area::-webkit-scrollbar-thumb,
+.srm-chat-embedded .chatting-viewer::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(134, 169, 229, 0.96), rgba(105, 135, 193, 0.88)) !important;
+  border: 3px solid rgba(24, 37, 64, 0.84) !important;
+  border-radius: 999px !important;
+}
+
+/* 플로팅 참여 인원 팝업은 기본 채팅 스크롤바 규칙보다 우선 적용 */
+.srm-chat-embedded .srm-chat-floating-layer::-webkit-scrollbar,
+.srm-chat-embedded .srm-chat-floating-layer [class*="list_participant"]::-webkit-scrollbar,
+.srm-chat-embedded .srm-chat-floating-layer [class*="list_viewer"]::-webkit-scrollbar,
+.srm-chat-embedded .srm-chat-floating-layer [class*="participant"]::-webkit-scrollbar,
+.srm-chat-embedded .srm-chat-floating-layer [class*="viewer"]::-webkit-scrollbar,
+.srm-chat-embedded .srm-chat-floating-layer .contents::-webkit-scrollbar,
+.srm-chat-embedded .srm-chat-floating-layer #userList::-webkit-scrollbar,
+.srm-chat-embedded .srm-chat-floating-layer [class*="contents"]::-webkit-scrollbar {
+  width: 14px !important;
+  height: 10px !important;
+}
+
+.srm-chat-embedded .srm-chat-floating-layer::-webkit-scrollbar-track,
+.srm-chat-embedded .srm-chat-floating-layer [class*="list_participant"]::-webkit-scrollbar-track,
+.srm-chat-embedded .srm-chat-floating-layer [class*="list_viewer"]::-webkit-scrollbar-track,
+.srm-chat-embedded .srm-chat-floating-layer [class*="participant"]::-webkit-scrollbar-track,
+.srm-chat-embedded .srm-chat-floating-layer [class*="viewer"]::-webkit-scrollbar-track,
+.srm-chat-embedded .srm-chat-floating-layer .contents::-webkit-scrollbar-track,
+.srm-chat-embedded .srm-chat-floating-layer #userList::-webkit-scrollbar-track,
+.srm-chat-embedded .srm-chat-floating-layer [class*="contents"]::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, rgba(32, 47, 79, 0.78), rgba(21, 33, 58, 0.82)) !important;
+  border-radius: 999px !important;
+}
+
+.srm-chat-embedded .srm-chat-floating-layer::-webkit-scrollbar-thumb,
+.srm-chat-embedded .srm-chat-floating-layer [class*="list_participant"]::-webkit-scrollbar-thumb,
+.srm-chat-embedded .srm-chat-floating-layer [class*="list_viewer"]::-webkit-scrollbar-thumb,
+.srm-chat-embedded .srm-chat-floating-layer [class*="participant"]::-webkit-scrollbar-thumb,
+.srm-chat-embedded .srm-chat-floating-layer [class*="viewer"]::-webkit-scrollbar-thumb,
+.srm-chat-embedded .srm-chat-floating-layer .contents::-webkit-scrollbar-thumb,
+.srm-chat-embedded .srm-chat-floating-layer #userList::-webkit-scrollbar-thumb,
+.srm-chat-embedded .srm-chat-floating-layer [class*="contents"]::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(134, 169, 229, 0.96), rgba(105, 135, 193, 0.88)) !important;
+  border: 3px solid rgba(24, 37, 64, 0.84) !important;
+  border-radius: 999px !important;
+}
+
+/* 탭 버튼 활성/비활성 */
+.srm-chat-embedded .section_selectTab button,
+.srm-chat-embedded .section_selectTab a {
+  color: rgba(200, 214, 229, 0.5) !important;
+}
+.srm-chat-embedded .section_selectTab .on,
+.srm-chat-embedded .section_selectTab .active,
+.srm-chat-embedded .section_selectTab [class*="selected"] {
+  color: #fff !important;
+}
+
+
+/* 리스트 패널 (왼쪽) */
+.srm-list-panel {
+  position: fixed !important;
+  top: 16px !important;
+  left: 16px !important;
+  width: clamp(320px, 34vw, 460px) !important;
+  max-width: calc(100vw - 32px) !important;
+  height: calc(100vh - 32px) !important;
+  background: var(--srm-bg) !important;
+  border: 1px solid var(--srm-border) !important;
+  display: none;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  border-radius: 24px !important;
+  box-shadow: var(--srm-shadow) !important;
+  z-index: 10001 !important;
+}
+
+.srm-list-panel * {
+  color: var(--srm-text) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.srm-list-panel .chat_title,
+.srm-list-panel .area_header,
+.srm-list-panel .section_selectTab {
+  background: var(--srm-bg-header) !important;
+  flex-shrink: 0 !important;
+}
+
+.srm-list-panel .chat_title,
+.srm-list-panel .area_header {
+  border-bottom: none !important;
+  box-shadow: inset 0 -1px 0 var(--srm-border-soft) !important;
+}
+
+.srm-list-panel > section.box {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.srm-list-panel > section.box.list_box {
+  display: flex !important;
+}
+
+.srm-list-panel #list_area {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+.srm-list-panel .list_box {
+  background: var(--srm-bg) !important;
+  display: block !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+  overflow-y: auto !important;
+}
+
+.srm-list-panel .filter_list,
+.srm-list-panel .area_header {
+  flex-shrink: 0 !important;
+}
+
+.srm-list-panel .filter_list {
+  padding: 14px 16px 12px !important;
+  border-top: 1px solid rgba(104, 136, 190, 0.08) !important;
+  border-bottom: 1px solid rgba(104, 136, 190, 0.18) !important;
+  background: linear-gradient(180deg, rgba(25, 38, 66, 0.94), rgba(23, 35, 60, 0.9)) !important;
+}
+
+.srm-list-panel #filter_list_wrap {
+  overflow: hidden !important;
+  width: 100% !important;
+}
+
+.srm-list-panel .filter_list .swiper-wrapper {
+  align-items: center !important;
+}
+
+.srm-list-panel .filter_list .swiper-slide {
+  width: auto !important;
+}
+
+.srm-list-panel .filter_list .swiper-slide button {
+  min-height: 38px !important;
+  padding: 0 16px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(118, 149, 208, 0.26) !important;
+  background: linear-gradient(180deg, rgba(236, 243, 255, 0.98), rgba(221, 232, 249, 0.94)) !important;
+  color: rgba(43, 63, 99, 0.9) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 10px 22px rgba(7, 13, 29, 0.14) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  transition:
+    background-color 0.22s ease,
+    border-color 0.22s ease,
+    color 0.18s ease,
+    box-shadow 0.22s ease,
+    transform 0.18s ease !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.srm-list-panel .filter_list .swiper-slide button:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(139, 171, 228, 0.34) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 12px 24px rgba(7, 13, 29, 0.18) !important;
+}
+
+.srm-list-panel .filter_list .swiper-slide.on button,
+.srm-list-panel .filter_list .swiper-slide[aria-selected="true"] button {
+  background: linear-gradient(180deg, rgba(19, 27, 42, 0.98), rgba(28, 36, 51, 0.96)) !important;
+  border-color: rgba(96, 126, 182, 0.4) !important;
+  color: #f4f8ff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(204, 221, 255, 0.06),
+    0 10px 22px rgba(5, 10, 23, 0.24) !important;
+}
+
+.srm-list-panel .filter_list,
+.srm-list-panel .filter_list *,
+.srm-list-panel #filter_list_wrap,
+.srm-list-panel .filter_list .swiper-wrapper,
+.srm-list-panel .filter_list .swiper-slide {
+  pointer-events: auto !important;
+}
+
+.srm-list-panel .filter_controller,
+.srm-list-panel .filter_controller .prev,
+.srm-list-panel .filter_controller .next,
+.srm-list-panel .swiper-button-disabled,
+.srm-list-panel .swiper-button-lock {
+  display: none !important;
+}
+
+.srm-list-panel .list_contents,
+.srm-list-panel #list-container {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.srm-list-panel a {
+  color: #7ea8f7 !important;
+}
+
+.srm-list-panel ::-webkit-scrollbar {
+  width: 6px;
+}
+.srm-list-panel ::-webkit-scrollbar-thumb {
+  background: rgba(100, 140, 255, 0.2);
+  border-radius: 3px;
+}
+
+/* 즐겨찾기 별 아이콘 */
+#srm-fav-icon {
+  font-size: 16px;
+  transition: color 0.2s;
+}
