@@ -10,7 +10,7 @@
 
 **Turn off the video. Keep the audio. Pretend to work.**
 
-A Chrome extension that adds radio mode to [SOOP](https://www.sooplive.co.kr/) (Korea's largest live streaming platform, formerly AfreecaTV).
+A Chrome extension that adds radio mode to [SOOP](https://www.sooplive.com/) (Korea's largest live streaming platform, formerly AfreecaTV).
 
 [한국어](README.md) · [Install from Chrome Web Store](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo) · [Installation](#-installation) · [Features](#-features) · [Shortcuts](#%EF%B8%8F-shortcuts)
 
@@ -39,7 +39,7 @@ Install it directly from the [Chrome Web Store](https://chromewebstore.google.co
 
 1. Open the [Stream Radio Mode listing](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo)
 2. Click **"Add to Chrome"**
-3. Visit a [SOOP live stream](https://www.sooplive.co.kr/) and use the extension
+3. Visit a [SOOP live stream](https://www.sooplive.com/) and use the extension
 
 ### Manual Install
 
@@ -47,14 +47,14 @@ Install it directly from the [Chrome Web Store](https://chromewebstore.google.co
 git clone https://github.com/Hahamin/stream-radio-mode.git
 ```
 
-Or download the source as a [ZIP archive](https://github.com/Hahamin/stream-radio-mode/archive/refs/heads/main.zip) and extract it.
+Or download the latest release as a [ZIP archive](https://github.com/Hahamin/stream-radio-mode/releases/latest/download/stream-radio-mode.zip) and extract it.
 
 1. Go to `chrome://extensions/`
 2. Enable **Developer mode**
 3. Click **"Load unpacked"**
 4. Select the `stream-radio-mode` folder
 
-After installation, open a [SOOP live stream](https://www.sooplive.co.kr/) and press `Alt + R` to enter Radio Mode.
+After installation, open a [SOOP live stream](https://www.sooplive.com/) and press `Alt + R` to enter Radio Mode.
 
 ---
 
@@ -64,6 +64,7 @@ After installation, open a [SOOP live stream](https://www.sooplive.co.kr/) and p
 |:---:|:---|
 | `Alt` + `R` | Toggle Radio Mode |
 | `Alt` + `B` | Toggle Stealth Mode |
+| `Alt` + `M` | Toggle Minimize Mode |
 
 ---
 
