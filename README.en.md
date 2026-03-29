@@ -4,70 +4,96 @@
 
 ### Listen to SOOP Live Streams Like a Radio
 
-[![Chrome Web Store](https://img.shields.io/badge/Chrome-Web%20Store-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo)
-[![Manifest V3](https://img.shields.io/badge/Manifest-V3-34A853?style=for-the-badge)](https://developer.chrome.com/docs/extensions/mv3/)
+[![Chrome Web Store](https://img.shields.io/badge/Chrome_Web_Store-Install-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
 **Turn off the video. Keep the audio. Pretend to work.**
 
-A Chrome extension that adds radio mode to [SOOP](https://www.sooplive.com/) (Korea's largest live streaming platform, formerly AfreecaTV).
+A Chrome extension that adds radio mode to [SOOP](https://www.sooplive.com/) (Korea's largest live streaming platform).
 
-[한국어](README.md) · [Install from Chrome Web Store](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo) · [Installation](#-installation) · [Features](#-features) · [Shortcuts](#%EF%B8%8F-shortcuts)
+[Install Now](#-install-30-seconds) · [한국어](README.md)
 
 </div>
 
 ---
 
-## ✨ Features
+## 🚀 Install (30 seconds)
 
-### 🎧 Radio Mode
-Turn off video rendering, keep audio playing. Saves GPU/CPU resources.
+### Option 1: Chrome Web Store (Recommended)
 
-### 🕶 Stealth Mode ("Lupin Mode")
-Disguise the tab as "Google Docs" — changes tab title, favicon, and auto-switches to another tab. **Audio keeps playing.**
+1. **[Click here](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo)** to open the Chrome Web Store
+2. Click **"Add to Chrome"**
+3. Done! Open a [SOOP](https://www.sooplive.com/) stream and press `Alt + R`
 
-### 📉 Auto Bandwidth Saving
-Automatically switches to the lowest quality stream in radio mode via SOOP's internal `livePlayer` API. Reduces bandwidth by ~90%.
+### Option 2: Manual Install (for developers)
+
+1. [Download ZIP](https://github.com/Hahamin/stream-radio-mode/releases/latest/download/stream-radio-mode.zip) and extract
+2. Go to `chrome://extensions`
+3. Enable **Developer mode** (top right)
+4. Click **"Load unpacked"** → select the folder
+
+> Works on Chrome, Edge, Whale, Brave, and any Chromium browser.
 
 ---
 
-## 🚀 Installation
+## ✨ Features
 
-Install it directly from the [Chrome Web Store](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo) if you just want to use it. If you want to test the latest source locally, use the manual installation steps below.
+### 🎧 Radio Mode — `Alt + R`
 
-### Chrome Web Store
+Turns off video, keeps audio. Saves **~90% bandwidth** automatically.
 
-1. Open the [Stream Radio Mode listing](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo)
-2. Click **"Add to Chrome"**
-3. Visit a [SOOP live stream](https://www.sooplive.com/) and use the extension
+- Streamer profile, name, stream title
+- Viewer count, stream duration (live sync)
+- Volume control, favorite, like buttons
+- Chat panel + list panel (dark theme)
 
-### Manual Install
+### 🕶 Stealth Mode — `Alt + B`
 
-```bash
-git clone https://github.com/Hahamin/stream-radio-mode.git
+Disguises the tab as **"Google Docs"** — changes title, favicon, and auto-switches to another tab. Audio keeps playing.
+
+### 📉 Auto Bandwidth Saving
+
+Radio mode automatically switches to the lowest quality stream via SOOP's internal API.
+
 ```
-
-Or download the latest release as a [ZIP archive](https://github.com/Hahamin/stream-radio-mode/releases/latest/download/stream-radio-mode.zip) and extract it.
-
-1. Go to `chrome://extensions/`
-2. Enable **Developer mode**
-3. Click **"Load unpacked"**
-4. Select the `stream-radio-mode` folder
-
-After installation, open a [SOOP live stream](https://www.sooplive.com/) and press `Alt + R` to enter Radio Mode.
+1080p (~5-8 Mbps)  →  LOW (~0.3 Mbps)  📉 90% saved
+```
 
 ---
 
 ## ⌨️ Shortcuts
 
-| Shortcut | Action |
+| Key | Action |
 |:---:|:---|
-| `Alt` + `R` | Toggle Radio Mode |
-| `Alt` + `B` | Toggle Stealth Mode |
-| `Alt` + `M` | Toggle Minimize Mode |
+| `Alt + R` | Toggle Radio Mode |
+| `Alt + B` | Toggle Stealth Mode |
+| `Alt + M` | Minimize Window |
 
 ---
 
-## 📜 License
+## ❓ FAQ
 
-[MIT License](LICENSE)
+**Q: Does it actually reduce bandwidth?**
+> Yes. It switches the actual stream quality to LOW, not just hiding the video.
+
+**Q: Can I hear audio in stealth mode?**
+> Yes! Only the tab title and favicon change. Audio keeps playing.
+
+---
+
+## 🤝 Contributing
+
+Bug reports, feature requests, and PRs are welcome!
+
+- [Open an issue](https://github.com/Hahamin/stream-radio-mode/issues)
+- Fork → Branch → PR
+
+---
+
+<div align="center">
+
+**⭐ Star this repo if you find it useful!**
+
+MIT License · Made with 🎧
+
+</div>

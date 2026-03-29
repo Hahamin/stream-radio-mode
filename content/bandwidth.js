@@ -11,17 +11,13 @@ const BandwidthSaver = {
   enable() {
     if (this._active) return;
     this._active = true;
-
     this._dispatch('enable');
-
   },
 
   disable() {
     if (!this._active) return;
     this._active = false;
-
     this._dispatch('disable');
-
   },
 
   _dispatch(action) {

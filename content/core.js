@@ -323,11 +323,10 @@ class RadioModeCore {
     const stripHash = (url) => url.replace(/#.*$/, '');
     const current = stripHash(location.href);
     const last = stripHash(this._lastUrl);
-    if (current !== last) {
-      this._lastUrl = location.href;
+    const changed = current !== last;
+    this._lastUrl = location.href;
+    if (changed) {
       this._onUrlChanged();
-    } else {
-      this._lastUrl = location.href;
     }
   }
 
@@ -336,13 +335,14 @@ class RadioModeCore {
     console.log('[StreamRadio] URL 변경 감지 → 라디오 모드 재시작:', location.href);
 
     // 1) 모든 옵저버/채팅 즉시 정지
-    window._srmChat?._stopChatLayoutObserver();
-    window._srmChat?._stopChatScrollController();
-    window._srmActions?._stopActionStateSync();
-    if (window._srmChat) {
-      window._srmChat._chatVisible = false;
-      window._srmChat._setChatState(false);
+    const chat = window._srmChat;
+    if (chat) {
+      chat._stopChatLayoutObserver();
+      chat._stopChatScrollController();
+      chat._chatVisible = false;
+      chat._setChatState(false);
     }
+    window._srmActions?._stopActionStateSync();
 
     // 2) 현재 라디오 모드 완전 해제 (오버레이 제거, 대역폭 복원)
     await this._disableInternal();

@@ -40,7 +40,6 @@ const RadioOverlayUI = {
     this._overlayEl = overlay;
 
     this._bindEvents(overlay, callbacks);
-    this._startVisualizer(overlay);
     this._startStatsSync(overlay);
     window._srmActions?._updateActionCounts(overlay);
     window._srmActions?._updateFavIcon(overlay);
@@ -254,10 +253,6 @@ const RadioOverlayUI = {
     });
 
     overlay.addEventListener('click', (e) => e.stopPropagation());
-  },
-
-  _startVisualizer() {
-    // CSS 애니메이션 기반
   },
 
   _escapeHTML(str) {
