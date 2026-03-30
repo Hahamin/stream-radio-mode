@@ -103,7 +103,6 @@ class SoopAdapter {
       ) || document.querySelector('.wrapping_player_bottom .nickname')
         || document.querySelector('.nickname');
 
-      console.log('[StreamRadio] nickname DOM:', nicknameEl?.textContent?.trim(), '| title:', document.title, '| URL:', location.pathname);
       if (nicknameEl?.textContent?.trim()) {
         const fullText = nicknameEl.textContent.trim();
         // "BJ이름 · 방송제목" 또는 "BJ이름 - 방송제목" 패턴 분리

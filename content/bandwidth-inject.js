@@ -206,7 +206,9 @@
         };
       }
 
-    } catch (e) {}
+    } catch (e) {
+      console.debug('[StreamRadio] 현재 화질 조회 실패:', e);
+    }
     return null;
   }
 

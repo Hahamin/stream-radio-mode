@@ -66,19 +66,21 @@ async function switchToOtherTab(currentTabId) {
     if (otherTab?.id) {
       await chrome.tabs.update(otherTab.id, { active: true });
     }
-  } catch {}
+  } catch (err) {
+    console.debug('[StreamRadio] 탭 전환 실패:', err);
+  }
 }
 
 async function toggleBossMode(tabId) {
   if (!tabId) return false;
 
   if (bossModeTabId === tabId) {
-    await disableBossMode(tabId, false);
+    await disableBossMode(tabId);
     return false;
   }
 
   if (bossModeTabId !== null && bossModeTabId !== tabId) {
-    await disableBossMode(bossModeTabId, false);
+    await disableBossMode(bossModeTabId);
   }
 
   const enabled = await setBossState(tabId, true);
@@ -92,18 +94,11 @@ async function toggleBossMode(tabId) {
   return true;
 }
 
-async function disableBossMode(tabId, activateStreamTab) {
+async function disableBossMode(tabId) {
   if (!tabId) return false;
 
   await setBossState(tabId, false);
   bossModeTabId = null;
-
-  if (activateStreamTab) {
-    try {
-      await chrome.tabs.update(tabId, { active: true });
-    } catch {}
-  }
-
   return true;
 }
 
@@ -126,7 +121,9 @@ async function toggleMinimizeMode() {
       // 복원
       try {
         await chrome.windows.update(minimizedWindowId, { state: 'normal' });
-      } catch {}
+      } catch (err) {
+        console.debug('[StreamRadio] 창 복원 실패:', err);
+      }
       minimizedWindowId = null;
       return false;
     }
@@ -140,7 +137,8 @@ async function toggleMinimizeMode() {
     }
 
     return false;
-  } catch {
+  } catch (err) {
+    console.debug('[StreamRadio] 최소화 모드 토글 실패:', err);
     minimizedWindowId = null;
     return false;
   }

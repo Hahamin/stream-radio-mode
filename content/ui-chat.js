@@ -89,12 +89,13 @@ window._srmChat = {
       this._unbindFloatingTriggers(chatEl);
       const chattingBox = chatEl.querySelector('section.box.chatting_box')
         || chatEl.querySelector('.chatting_box');
-      chattingBox?.style.removeProperty('display');
+      if (chattingBox) {
+        chattingBox.style.removeProperty('display');
+        chattingBox.style.removeProperty('height');
+      }
       // 인라인 height 복원
       chatEl.style.removeProperty('height');
       chatEl.style.removeProperty('top');
-      const cboxRestore = chatEl.querySelector('section.box.chatting_box') || chatEl.querySelector('.chatting_box');
-      if (cboxRestore) cboxRestore.style.removeProperty('height');
       const chattingArea = chatEl.querySelector('#chatting_area');
       if (chattingArea) chattingArea.style.removeProperty('height');
       const chatbox = chatEl.querySelector('#chatbox');
@@ -370,14 +371,7 @@ window._srmChat = {
       ':scope > #iceSettingSub',
     ].join(', ');
 
-    let visibleLayers = [];
-    try {
-      visibleLayers = Array.from(layerHost.querySelectorAll(popupSelectors));
-    } catch (_err) {
-      visibleLayers = Array.from(layerHost.querySelectorAll(
-        '#list_viewer, .chat_layer, [class*="chat_layer"], [class*="list_participant"], [class*="list_viewer"], [class*="chatting_management"], #iceSetting, #iceSettingSub'
-      )).filter((layer) => layer.parentElement === layerHost);
-    }
+    let visibleLayers = Array.from(layerHost.querySelectorAll(popupSelectors));
 
     visibleLayers = visibleLayers.filter((layer) => this._isVisibleLayer(layer));
 
