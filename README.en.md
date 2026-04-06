@@ -48,6 +48,11 @@ Turns off video, keeps audio, and now adds a **speech-focused EQ** you can toggl
 - Speech EQ toggle + 3 presets (`Clarity`, `Bass Cut`, `Night`)
 - Chat panel + list panel (dark theme)
 
+### 🎞 VOD Radio Board
+
+On VOD pages, the overlay now focuses on **current time / total length / seek bar** instead of showing a large video card.  
+Hover the seek bar to see a thumbnail preview, and click to jump to that point.
+
 ### 🕶 Stealth Mode — `Alt + B`
 
 Disguises the tab as **"Google Docs"** — changes title, favicon, and auto-switches to another tab. Audio keeps playing.

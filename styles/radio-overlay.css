@@ -312,6 +312,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
 }
 
 .srm-overlay-vod .srm-media-preview-label-group {

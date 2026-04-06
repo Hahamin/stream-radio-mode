@@ -554,10 +554,7 @@ const RadioOverlayUI = {
         <img class="srm-media-preview-image srm-media-preview-image-hidden" id="srm-media-preview-image" alt="">
         <div class="srm-media-preview-meta srm-media-preview-meta-vod">
           <div class="srm-media-preview-header">
-            <div class="srm-media-preview-label-group">
-              <span class="srm-media-preview-chip">${previewChip}</span>
-              <span class="srm-media-preview-label">${previewLabel}</span>
-            </div>
+            <span class="srm-media-preview-chip">${previewChip}</span>
             <span class="srm-media-preview-state" id="srm-media-preview-status"></span>
           </div>
           <div class="srm-media-preview-time-row">
