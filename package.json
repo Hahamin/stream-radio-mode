@@ -1,10 +1,12 @@
 {
   "scripts": {
+    "check:syntax": "node -e \"const fs=require('fs');const path=require('path');const cp=require('child_process');const ignore=new Set(['.git','dist','docs','icons','node_modules']);const files=[];(function walk(dir){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){if(ignore.has(entry.name)) continue;const full=path.join(dir,entry.name);if(entry.isDirectory()) walk(full); else if(entry.isFile()&&entry.name.endsWith('.js')&&!entry.name.startsWith('test-')) files.push(full);}})(process.cwd());if(!files.length){console.log('[syntax] 검사할 JS 파일이 없습니다.');process.exit(0);}files.sort().forEach((file)=>cp.execFileSync(process.execPath,['--check',file],{stdio:'inherit'}));console.log('[syntax] '+files.length+'개 JS 파일 문법 검사 통과');\"",
     "cws:package": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action package",
     "cws:status": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action status",
     "cws:upload": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action upload",
     "cws:publish": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action publish",
-    "cws:release": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action release"
+    "cws:release": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action release",
+    "test": "npm run check:syntax"
   },
   "devDependencies": {
     "playwright": "^1.58.2"

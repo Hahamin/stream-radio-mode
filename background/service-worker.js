@@ -1,13 +1,122 @@
 /**
  * Stream Radio Mode — Service Worker (Background)
- * 키보드 단축키 처리 + 상태 관리 + 보스 모드
+ * 상태 관리 + 보스 모드 + 최소화 모드
  */
 
-// 보스 모드에서 돌아갈 탭 ID 저장
-let bossModeTabId = null;
+const BACKGROUND_STATE_KEY = 'srm-background-state';
+const backgroundStateStorage = chrome.storage.session || chrome.storage.local;
 
-// 최소화 모드 상태
-let minimizedWindowId = null;
+function getDefaultBackgroundState() {
+  return {
+    bossMode: {
+      tabId: null,
+      windowId: null,
+    },
+    minimizedWindowId: null,
+  };
+}
+
+async function getBackgroundState() {
+  const stored = await backgroundStateStorage.get(BACKGROUND_STATE_KEY);
+  const nextState = {
+    ...getDefaultBackgroundState(),
+    ...(stored?.[BACKGROUND_STATE_KEY] || {}),
+  };
+
+  nextState.bossMode = {
+    ...getDefaultBackgroundState().bossMode,
+    ...(nextState.bossMode || {}),
+  };
+
+  return nextState;
+}
+
+async function setBackgroundState(nextState) {
+  const normalized = {
+    ...getDefaultBackgroundState(),
+    ...(nextState || {}),
+    bossMode: {
+      ...getDefaultBackgroundState().bossMode,
+      ...(nextState?.bossMode || {}),
+    },
+  };
+
+  await backgroundStateStorage.set({
+    [BACKGROUND_STATE_KEY]: normalized,
+  });
+
+  return normalized;
+}
+
+async function patchBackgroundState(patch) {
+  const current = await getBackgroundState();
+  return setBackgroundState({
+    ...current,
+    ...(patch || {}),
+    bossMode: {
+      ...current.bossMode,
+      ...(patch?.bossMode || {}),
+    },
+  });
+}
+
+function resolveTabId(msg, sender) {
+  return Number.isInteger(msg?.tabId) ? msg.tabId : sender.tab?.id ?? null;
+}
+
+function resolveWindowId(msg, sender) {
+  return Number.isInteger(msg?.windowId) ? msg.windowId : sender.tab?.windowId ?? null;
+}
+
+async function getValidatedBossMode() {
+  const state = await getBackgroundState();
+  const bossMode = state.bossMode || {};
+
+  if (!bossMode.tabId) {
+    return { tabId: null, windowId: null };
+  }
+
+  try {
+    const tab = await chrome.tabs.get(bossMode.tabId);
+    const validated = {
+      tabId: tab?.id ?? null,
+      windowId: bossMode.windowId ?? tab?.windowId ?? null,
+    };
+
+    if (validated.tabId !== bossMode.tabId || validated.windowId !== bossMode.windowId) {
+      await patchBackgroundState({ bossMode: validated });
+    }
+
+    return validated;
+  } catch {
+    await patchBackgroundState({
+      bossMode: {
+        tabId: null,
+        windowId: null,
+      },
+    });
+    return { tabId: null, windowId: null };
+  }
+}
+
+async function getValidatedMinimizedWindowId() {
+  const state = await getBackgroundState();
+  const { minimizedWindowId } = state;
+
+  if (!minimizedWindowId) {
+    return null;
+  }
+
+  try {
+    const win = await chrome.windows.get(minimizedWindowId);
+    if (win?.state === 'minimized') {
+      return minimizedWindowId;
+    }
+  } catch {}
+
+  await patchBackgroundState({ minimizedWindowId: null });
+  return null;
+}
 
 // content script / 팝업에서 메시지 수신
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -16,38 +125,44 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.action === 'toggle-boss') {
-    const requestedTabId = msg.tabId ?? sender.tab?.id;
-    toggleBossMode(requestedTabId)
+    const requestedTabId = resolveTabId(msg, sender);
+    const requestedWindowId = resolveWindowId(msg, sender);
+    toggleBossMode(requestedTabId, requestedWindowId)
       .then((active) => sendResponse({ active }))
       .catch(() => sendResponse({ active: false }));
     return true;
   }
 
   if (msg.action === 'get-boss-state') {
-    const requestedTabId = msg.tabId ?? sender.tab?.id;
-    sendResponse({ active: requestedTabId === bossModeTabId });
-    return false;
+    const requestedTabId = resolveTabId(msg, sender);
+    getBossModeState(requestedTabId)
+      .then((active) => sendResponse({ active }))
+      .catch(() => sendResponse({ active: false }));
+    return true;
   }
 
   if (msg.action === 'clear-boss-state') {
-    const requestedTabId = msg.tabId ?? sender.tab?.id;
-    if (requestedTabId === bossModeTabId) {
-      bossModeTabId = null;
-    }
-    sendResponse({ active: false });
-    return false;
+    const requestedTabId = resolveTabId(msg, sender);
+    clearBossModeState(requestedTabId)
+      .then(() => sendResponse({ active: false }))
+      .catch(() => sendResponse({ active: false }));
+    return true;
   }
 
   if (msg.action === 'toggle-minimize') {
-    toggleMinimizeMode()
+    const requestedWindowId = resolveWindowId(msg, sender);
+    toggleMinimizeMode(requestedWindowId)
       .then((minimized) => sendResponse({ minimized }))
       .catch(() => sendResponse({ minimized: false }));
     return true;
   }
 
   if (msg.action === 'get-minimize-state') {
-    sendResponse({ minimized: minimizedWindowId !== null });
-    return false;
+    const requestedWindowId = resolveWindowId(msg, sender);
+    getMinimizeModeState(requestedWindowId)
+      .then((minimized) => sendResponse({ minimized }))
+      .catch(() => sendResponse({ minimized: false }));
+    return true;
   }
 
   return false;
@@ -56,12 +171,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 /**
  * 현재 탭이 아닌 다른 탭으로 전환
  */
-async function switchToOtherTab(currentTabId) {
+async function switchToOtherTab(currentTabId, windowId) {
   try {
-    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const query = Number.isInteger(windowId) ? { windowId } : {};
+    const tabs = await chrome.tabs.query(query);
     const otherTab = tabs
-      .filter((t) => t.id !== currentTabId && !t.pinned)
-      .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+      .filter((tab) => tab.id !== currentTabId && !tab.pinned)
+      .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0]
+      || tabs
+        .filter((tab) => tab.id !== currentTabId)
+        .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
 
     if (otherTab?.id) {
       await chrome.tabs.update(otherTab.id, { active: true });
@@ -71,26 +190,59 @@ async function switchToOtherTab(currentTabId) {
   }
 }
 
-async function toggleBossMode(tabId) {
+async function getBossModeState(tabId) {
+  const bossMode = await getValidatedBossMode();
+  return Boolean(tabId && bossMode.tabId === tabId);
+}
+
+async function toggleBossMode(tabId, windowId) {
   if (!tabId) return false;
 
-  if (bossModeTabId === tabId) {
+  const bossMode = await getValidatedBossMode();
+
+  if (bossMode.tabId === tabId) {
     await disableBossMode(tabId);
     return false;
   }
 
-  if (bossModeTabId !== null && bossModeTabId !== tabId) {
-    await disableBossMode(bossModeTabId);
+  if (bossMode.tabId !== null && bossMode.tabId !== tabId) {
+    await disableBossMode(bossMode.tabId);
   }
 
   const enabled = await setBossState(tabId, true);
   if (!enabled) {
-    bossModeTabId = null;
+    await patchBackgroundState({
+      bossMode: {
+        tabId: null,
+        windowId: null,
+      },
+    });
     return false;
   }
 
-  bossModeTabId = tabId;
-  await switchToOtherTab(tabId);
+  await patchBackgroundState({
+    bossMode: {
+      tabId,
+      windowId,
+    },
+  });
+
+  await switchToOtherTab(tabId, windowId);
+  return true;
+}
+
+async function clearBossModeState(tabId) {
+  const bossMode = await getValidatedBossMode();
+  if (tabId && bossMode.tabId !== tabId) {
+    return false;
+  }
+
+  await patchBackgroundState({
+    bossMode: {
+      tabId: null,
+      windowId: null,
+    },
+  });
   return true;
 }
 
@@ -98,7 +250,7 @@ async function disableBossMode(tabId) {
   if (!tabId) return false;
 
   await setBossState(tabId, false);
-  bossModeTabId = null;
+  await clearBossModeState(tabId);
   return true;
 }
 
@@ -107,39 +259,57 @@ async function setBossState(tabId, active) {
     await chrome.tabs.sendMessage(tabId, { action: 'set-boss-state', active });
     return true;
   } catch {
-    if (bossModeTabId === tabId) {
-      bossModeTabId = null;
+    const bossMode = await getValidatedBossMode();
+    if (bossMode.tabId === tabId) {
+      await clearBossModeState(tabId);
     }
     return false;
   }
 }
 
+async function getMinimizeModeState(windowId) {
+  const minimizedWindowId = await getValidatedMinimizedWindowId();
+  if (!windowId) {
+    return Boolean(minimizedWindowId);
+  }
+
+  return minimizedWindowId === windowId;
+}
+
 // 최소화 모드 토글
-async function toggleMinimizeMode() {
+async function toggleMinimizeMode(windowId) {
+  if (!windowId) {
+    return false;
+  }
+
   try {
-    if (minimizedWindowId !== null) {
-      // 복원
+    const minimizedWindowId = await getValidatedMinimizedWindowId();
+
+    if (minimizedWindowId === windowId) {
       try {
-        await chrome.windows.update(minimizedWindowId, { state: 'normal' });
+        await chrome.windows.update(windowId, { state: 'normal' });
       } catch (err) {
         console.debug('[StreamRadio] 창 복원 실패:', err);
       }
-      minimizedWindowId = null;
+      await patchBackgroundState({ minimizedWindowId: null });
       return false;
     }
 
-    // 현재 창 최소화
-    const currentWindow = await chrome.windows.getCurrent();
-    if (currentWindow?.id) {
-      await chrome.windows.update(currentWindow.id, { state: 'minimized' });
-      minimizedWindowId = currentWindow.id;
-      return true;
+    if (minimizedWindowId !== null && minimizedWindowId !== windowId) {
+      try {
+        await chrome.windows.update(minimizedWindowId, { state: 'normal' });
+      } catch (err) {
+        console.debug('[StreamRadio] 이전 최소화 창 복원 실패:', err);
+      }
+      await patchBackgroundState({ minimizedWindowId: null });
     }
 
-    return false;
+    await chrome.windows.update(windowId, { state: 'minimized' });
+    await patchBackgroundState({ minimizedWindowId: windowId });
+    return true;
   } catch (err) {
     console.debug('[StreamRadio] 최소화 모드 토글 실패:', err);
-    minimizedWindowId = null;
+    await patchBackgroundState({ minimizedWindowId: null });
     return false;
   }
 }
@@ -159,14 +329,29 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === 'loading') {
     chrome.action.setBadgeText({ text: '', tabId });
 
-    if (tabId === bossModeTabId) {
-      bossModeTabId = null;
-    }
+    void getValidatedBossMode().then((bossMode) => {
+      if (tabId === bossMode.tabId) {
+        return clearBossModeState(tabId);
+      }
+      return null;
+    });
   }
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-  if (tabId === bossModeTabId) {
-    bossModeTabId = null;
-  }
+  void getValidatedBossMode().then((bossMode) => {
+    if (tabId === bossMode.tabId) {
+      return clearBossModeState(tabId);
+    }
+    return null;
+  });
+});
+
+chrome.windows.onRemoved.addListener((windowId) => {
+  void getValidatedMinimizedWindowId().then((minimizedWindowId) => {
+    if (windowId === minimizedWindowId) {
+      return patchBackgroundState({ minimizedWindowId: null });
+    }
+    return null;
+  });
 });

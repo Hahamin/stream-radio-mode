@@ -219,7 +219,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 28px;
+  margin-bottom: 18px;
   z-index: 1;
 }
 
@@ -264,6 +264,93 @@
   color: rgba(255, 255, 255, 0.5);
   min-width: 35px;
   text-align: right;
+}
+
+.srm-audio-tools {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+  z-index: 1;
+}
+
+.srm-audio-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 148px;
+  padding: 9px 14px;
+  border: 1px solid rgba(100, 140, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(13, 22, 40, 0.5);
+  color: #dbeafe;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.srm-audio-tool:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(100, 140, 255, 0.16);
+  border-color: rgba(100, 140, 255, 0.42);
+  box-shadow: 0 10px 24px rgba(5, 10, 24, 0.18);
+}
+
+.srm-audio-tool:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.srm-audio-tool.srm-audio-tool-active {
+  background: rgba(100, 140, 255, 0.18);
+  border-color: rgba(129, 166, 255, 0.48);
+}
+
+.srm-audio-tool.srm-audio-tool-pending {
+  border-color: rgba(255, 196, 87, 0.48);
+  background: rgba(255, 196, 87, 0.12);
+}
+
+.srm-audio-tool-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9fc0ff;
+}
+
+.srm-audio-tool-hint {
+  margin-bottom: 24px;
+  font-size: 12px;
+  color: rgba(235, 244, 255, 0.62);
+  letter-spacing: 0.02em;
+  z-index: 1;
+}
+
+@media (max-width: 640px) {
+  .srm-audio-tools {
+    width: min(92vw, 360px);
+  }
+
+  .srm-audio-tool {
+    width: 100%;
+    max-width: none;
+  }
+
+  .srm-btn-group {
+    width: min(92vw, 360px);
+    flex-direction: column;
+  }
+
+  .srm-switch-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* 비디오 모드 전환 버튼 */

@@ -10,20 +10,23 @@ window._srmActions = {
 
   _startActionStateSync(overlay) {
     this._stopActionStateSync();
-    if (!overlay || !document.body) return;
+    if (!overlay) return;
+
+    const actionRoot = this._getActionRoot();
+    if (!actionRoot) return;
 
     this._syncActionState(overlay);
 
     this._actionObserver = new MutationObserver(() => {
       // SPA 네비게이션으로 overlay가 DOM에서 분리되면 즉시 정지
-      if (!overlay.isConnected) {
+      if (!overlay.isConnected || !actionRoot.isConnected) {
         this._stopActionStateSync();
         return;
       }
       this._scheduleActionStateSync(overlay);
     });
 
-    this._actionObserver.observe(document.body, {
+    this._actionObserver.observe(actionRoot, {
       childList: true,
       subtree: true,
       characterData: true,
@@ -153,6 +156,18 @@ window._srmActions = {
 
   _findLikeButton() {
     return document.querySelector('button#like, button.like');
+  },
+
+  _getActionRoot() {
+    const favBtn = this._findFavoriteButton();
+    const likeBtn = this._findLikeButton();
+    const buttonRootSelector = '#player_info, .detail_info, .wrapping_player_bottom, .player_ctrlBox';
+    const fallbackSelector = '#player_info, .detail_info, .wrapping_player_bottom, .player_ctrlBox';
+
+    return favBtn?.closest(buttonRootSelector)
+      || likeBtn?.closest(buttonRootSelector)
+      || document.querySelector(fallbackSelector)
+      || null;
   },
 
   _updateActionCounts(overlay, snapshot = this._getActionSnapshot()) {

@@ -22,6 +22,12 @@ const RadioOverlayUI = {
     this._externalUpdate = false;
   },
 
+  updateSpeechEQ(state) {
+    const overlay = this._overlayEl;
+    if (!overlay) return;
+    this._applySpeechEQState(overlay, state);
+  },
+
   /**
    * 라디오 모드 오버레이 표시
    * @param {HTMLElement} container - 플레이어 컨테이너
@@ -35,11 +41,16 @@ const RadioOverlayUI = {
 
     const overlay = document.createElement('div');
     overlay.className = 'srm-overlay';
-    overlay.innerHTML = this._buildHTML(info, callbacks?.currentVolume ?? 0.5);
+    overlay.innerHTML = this._buildHTML(
+      info,
+      callbacks?.currentVolume ?? 0.5,
+      callbacks?.speechEqState,
+    );
     container.appendChild(overlay);
     this._overlayEl = overlay;
 
     this._bindEvents(overlay, callbacks);
+    this._applySpeechEQState(overlay, callbacks?.speechEqState);
     this._startStatsSync(overlay);
     window._srmActions?._updateActionCounts(overlay);
     window._srmActions?._updateFavIcon(overlay);
@@ -116,7 +127,7 @@ const RadioOverlayUI = {
     }
   },
 
-  _buildHTML(info, volume) {
+  _buildHTML(info, volume, speechEqState = null) {
     const avatarHTML = info.avatarUrl
       ? `<img class="srm-streamer-avatar" src="${this._escapeAttr(info.avatarUrl)}" alt="">`
       : `<div class="srm-streamer-avatar srm-no-avatar">${this._getInitial(info.name)}</div>`;
@@ -131,6 +142,7 @@ const RadioOverlayUI = {
 
     const volPercent = Math.round(volume * 100);
     const volIcon = volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊';
+    const initialPresetLabel = this._escapeHTML(speechEqState?.label || '선명');
 
     return `
       <div class="srm-content">
@@ -165,6 +177,17 @@ const RadioOverlayUI = {
         <input type="range" class="srm-volume-slider" min="0" max="100" value="${volPercent}">
         <span class="srm-volume-value">${volPercent}%</span>
       </div>
+      <div class="srm-audio-tools">
+        <button class="srm-audio-tool" data-action="speech-eq-toggle" type="button" aria-pressed="false">
+          <span>🎙 대사 EQ</span>
+          <span class="srm-audio-tool-value" id="srm-speech-eq-status">OFF</span>
+        </button>
+        <button class="srm-audio-tool" data-action="speech-eq-preset" type="button">
+          <span>프리셋</span>
+          <span class="srm-audio-tool-value" id="srm-speech-eq-preset">${initialPresetLabel}</span>
+        </button>
+      </div>
+      <div class="srm-audio-tool-hint" id="srm-speech-eq-hint">대사 중심 EQ 꺼짐</div>
       <div class="srm-btn-group">
         <button class="srm-switch-btn" data-action="switch-video">
           📺 비디오 모드로 전환
@@ -186,7 +209,7 @@ const RadioOverlayUI = {
     const slider = overlay.querySelector('.srm-volume-slider');
     const volValue = overlay.querySelector('.srm-volume-value');
     const volIcon = overlay.querySelector('.srm-volume-icon');
-    let prevVolume = callbacks.currentVolume;
+    let prevVolume = callbacks?.currentVolume ?? 0.5;
 
     slider?.addEventListener('input', (e) => {
       if (RadioOverlayUI._externalUpdate) return;
@@ -252,7 +275,89 @@ const RadioOverlayUI = {
       }
     });
 
+    overlay.querySelector('[data-action="speech-eq-toggle"]')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        const state = await callbacks?.onSpeechEqToggle?.();
+        if (state) {
+          RadioOverlayUI.updateSpeechEQ(state);
+        }
+      } catch (_) {}
+    });
+
+    overlay.querySelector('[data-action="speech-eq-preset"]')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        const state = await callbacks?.onSpeechEqPresetCycle?.();
+        if (state) {
+          RadioOverlayUI.updateSpeechEQ(state);
+        }
+      } catch (_) {}
+    });
+
     overlay.addEventListener('click', (e) => e.stopPropagation());
+  },
+
+  _applySpeechEQState(overlay, state) {
+    const toggleBtn = overlay.querySelector('[data-action="speech-eq-toggle"]');
+    const presetBtn = overlay.querySelector('[data-action="speech-eq-preset"]');
+    const statusEl = overlay.querySelector('#srm-speech-eq-status');
+    const presetEl = overlay.querySelector('#srm-speech-eq-preset');
+    const hintEl = overlay.querySelector('#srm-speech-eq-hint');
+    const speechState = state || {
+      enabled: false,
+      supported: true,
+      label: '선명',
+      contextState: 'idle',
+      activeProcessing: false,
+    };
+
+    const supported = speechState.supported !== false;
+    const enabled = Boolean(speechState.enabled);
+    const activeProcessing = Boolean(speechState.activeProcessing);
+    const label = speechState.label || '선명';
+
+    if (toggleBtn) {
+      toggleBtn.classList.toggle('srm-audio-tool-active', enabled);
+      toggleBtn.classList.toggle('srm-audio-tool-pending', enabled && !activeProcessing);
+      toggleBtn.disabled = !supported;
+      toggleBtn.setAttribute('aria-pressed', String(enabled));
+    }
+
+    if (presetBtn) {
+      presetBtn.classList.toggle('srm-audio-tool-active', enabled);
+      presetBtn.disabled = !supported;
+    }
+
+    if (statusEl) {
+      if (!supported) {
+        statusEl.textContent = '지원 안 됨';
+      } else if (!enabled) {
+        statusEl.textContent = 'OFF';
+      } else if (activeProcessing) {
+        statusEl.textContent = 'ON';
+      } else {
+        statusEl.textContent = '대기';
+      }
+    }
+
+    if (presetEl) {
+      presetEl.textContent = label;
+    }
+
+    if (hintEl) {
+      if (!supported) {
+        hintEl.textContent = '브라우저가 대사 중심 EQ를 지원하지 않음';
+      } else if (!enabled) {
+        hintEl.textContent = '대사 중심 EQ 꺼짐';
+      } else if (activeProcessing) {
+        hintEl.textContent = `대사 중심 EQ · ${label}`;
+      } else if (speechState.contextState === 'suspended') {
+        hintEl.textContent = `대사 중심 EQ 대기중 · ${label}`;
+      } else {
+        hintEl.textContent = `대사 중심 EQ 준비중 · ${label}`;
+      }
+    }
   },
 
   _escapeHTML(str) {
