@@ -36,6 +36,34 @@ A Chrome extension that adds radio mode to [SOOP](https://www.sooplive.com/) liv
 
 ---
 
+## 🧭 Quick Intro
+
+The easiest way to think about this extension:
+
+- Open a SOOP live stream or VOD.
+- Press `Alt + R`.
+- The video is hidden, but audio keeps playing.
+- If you want the picture back, press `Switch to Video Mode`.
+
+```mermaid
+flowchart LR
+  A[Open SOOP Live / VOD] --> B[Press Alt + R]
+  B --> C[Enter Radio Mode]
+  C --> D[Video OFF + Audio stays]
+  C --> E[Auto low-quality saving]
+  C --> F[Chat / EQ / Volume controls]
+  D --> G[Switch back to Video Mode anytime]
+```
+
+### Great for
+
+- listening while working or studying
+- reducing bandwidth and battery use
+- treating VOD like an audio-first replay
+- hiding the screen quickly when someone walks by
+
+---
+
 ## ✨ Features
 
 ### 🎧 Radio Mode — `Alt + R`
@@ -52,6 +80,12 @@ Turns off video, keeps audio, and now adds a **speech-focused EQ** you can toggl
 
 On VOD pages, the overlay now focuses on **current time / total length / seek bar** instead of showing a large video card.  
 Hover the seek bar to see a thumbnail preview, and click to jump to that point.
+
+| When you want to watch | When you mainly want to listen |
+|:---|:---|
+| Normal video mode | VOD radio board |
+| video + audio | audio-first + seek bar |
+| keep eyes on the screen | preview only when needed |
 
 ### 🕶 Stealth Mode — `Alt + B`
 
