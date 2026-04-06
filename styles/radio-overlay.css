@@ -1531,7 +1531,7 @@
   overflow-x: hidden !important;
   overflow-y: scroll !important;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable both-edges;
+  scrollbar-gutter: stable;
   scrollbar-width: auto !important;
   scrollbar-color: rgba(118, 153, 214, 0.9) rgba(28, 41, 69, 0.72) !important;
 }
@@ -1865,7 +1865,7 @@
   box-sizing: border-box !important;
   width: 100% !important;
   scroll-behavior: smooth;
-  scrollbar-gutter: stable both-edges;
+  scrollbar-gutter: stable;
   scrollbar-width: auto !important;
   scrollbar-color: rgba(118, 153, 214, 0.9) rgba(28, 41, 69, 0.72) !important;
 }
@@ -1878,7 +1878,7 @@
   overflow-x: hidden !important;
   overflow-y: scroll !important;
   padding-right: 8px !important;
-  scrollbar-gutter: stable both-edges !important;
+  scrollbar-gutter: stable !important;
   scrollbar-width: auto !important;
   scrollbar-color: rgba(118, 153, 214, 0.9) rgba(28, 41, 69, 0.72) !important;
 }
