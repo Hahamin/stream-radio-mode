@@ -9,7 +9,8 @@ class RadioModeCore {
   constructor() {
     this.active = false;
     this.adapter = null;
-    this._videoRef = null; // 숨긴 video 요소의 직접 참조
+    this._videoRef = null;
+    this._volumeHandler = null;
     this._messageListener = null;
     this._playerReady = Promise.resolve(null);
     this._transition = Promise.resolve();
@@ -17,6 +18,10 @@ class RadioModeCore {
     this._autoRadio = false;
     this._lastUrl = location.href;
     this._urlCheckInterval = null;
+    this._urlMessageHandler = null;
+    this._playerBindToken = 0;
+    this._cancelPlayerWait = null;
+    this._urlChangeToken = 0;
 
     this._init();
   }
@@ -38,14 +43,18 @@ class RadioModeCore {
       return Promise.resolve(this._getStatePayload());
     }
 
+    this._urlChangeToken += 1;
+
     return this._queueTransition(async () => {
       if (this.active) {
         await this._disableInternal();
       }
 
+      this._cancelPlayerBindingWait();
       this.adapter = null;
       this._playerReady = Promise.resolve(null);
       this._videoRef = null;
+      this._volumeHandler = null;
       document.querySelector('.srm-toggle-btn')?.remove();
       this._notifyState();
       this._saveState();
@@ -53,9 +62,14 @@ class RadioModeCore {
     });
   }
 
+  isShortcutAvailable() {
+    return this._isAdapterUsable();
+  }
+
   _init() {
     if (this._initialized) return;
     this._initialized = true;
+    void window.__speechEQ?.init?.();
 
     // 메시지 리스너 (단축키, 팝업에서 토글 요청)
     this._messageListener = (msg, _sender, sendResponse) => {
@@ -67,6 +81,19 @@ class RadioModeCore {
       } else if (msg.action === 'get-state') {
         sendResponse(this._getStatePayload());
         return false;
+      } else if (msg.action === 'get-speech-eq-state') {
+        sendResponse(this._getSpeechEqState());
+        return false;
+      } else if (msg.action === 'toggle-speech-eq') {
+        this._toggleSpeechEQ()
+          .then(sendResponse)
+          .catch(() => sendResponse(this._getSpeechEqState()));
+        return true;
+      } else if (msg.action === 'cycle-speech-eq-preset') {
+        this._cycleSpeechEQPreset()
+          .then(sendResponse)
+          .catch(() => sendResponse(this._getSpeechEqState()));
+        return true;
       }
       return false;
     };
@@ -85,32 +112,125 @@ class RadioModeCore {
     });
   }
 
+  _isAdapterUsable() {
+    if (!this.adapter) return false;
+    if (typeof this.adapter.isLivePage === 'function') {
+      return this.adapter.isLivePage();
+    }
+    return true;
+  }
+
+  _cancelPlayerBindingWait() {
+    if (this._cancelPlayerWait) {
+      this._cancelPlayerWait();
+      this._cancelPlayerWait = null;
+    }
+  }
+
+  _getVideoSourceSignature(video) {
+    if (!video || !(video instanceof HTMLVideoElement)) return '';
+
+    return [
+      video.currentSrc || '',
+      video.src || '',
+      video.getAttribute('src') || '',
+      String(video.readyState || 0),
+    ].join('|');
+  }
+
+  _getPlayerContextSignature(video = null) {
+    if (!this.adapter) return '';
+    if (typeof this.adapter.getStreamIdentity === 'function') {
+      return this.adapter.getStreamIdentity(video);
+    }
+    return this._getVideoSourceSignature(video);
+  }
+
+  _createPlayerMatchOptions(previousVideo = null) {
+    if (!previousVideo || !(previousVideo instanceof HTMLVideoElement)) {
+      return null;
+    }
+
+    return {
+      previousVideo,
+      previousSignature: this._getVideoSourceSignature(previousVideo),
+      previousContextSignature: this._getPlayerContextSignature(previousVideo),
+    };
+  }
+
+  _matchesPlayer(video, matchOptions = null) {
+    if (!video || !(video instanceof HTMLVideoElement)) return false;
+    if (!video.isConnected) return false;
+    if (!this.adapter) return false;
+
+    if (matchOptions?.previousVideo && video === matchOptions.previousVideo) {
+      const currentSignature = this._getVideoSourceSignature(video);
+      const currentContextSignature = this._getPlayerContextSignature(video);
+      const sourceChanged = Boolean(currentSignature && currentSignature !== matchOptions.previousSignature);
+      const contextChanged = Boolean(
+        currentContextSignature
+        && currentContextSignature !== matchOptions.previousContextSignature
+      );
+
+      if (!sourceChanged && !contextChanged) {
+        return false;
+      }
+    }
+
+    return this._isAdapterUsable();
+  }
+
   _prepareAdapter() {
     if (!this.adapter) return;
 
-    document.querySelector('.srm-toggle-btn')?.remove();
-    this._playerReady = this._waitForPlayer().catch(() => null);
+    if (!this._isAdapterUsable()) {
+      this._cancelPlayerBindingWait();
+      this._playerReady = Promise.resolve(null);
+      document.querySelector('.srm-toggle-btn')?.remove();
+      this._notifyState();
+      return;
+    }
 
-    // 토글 버튼 삽입
-    this._playerReady.then((video) => {
-      if (video) {
-        this.adapter.injectToggleButton(() => {
-          void this.toggle();
-        });
-      }
-    });
-
+    void this._refreshPlayerBinding();
     this._autoEnableIfNeeded();
   }
 
-  _autoEnableIfNeeded() {
-    if (!this._autoRadio || !this.adapter || this.active) return;
+  _refreshPlayerBinding(options = {}) {
+    const { previousVideo = null } = options;
+    const matchOptions = this._createPlayerMatchOptions(previousVideo);
 
-    // 방송 시청 페이지에서만 자동 활성화 (메인/목록 페이지 제외)
-    if (typeof this.adapter.isLivePage === 'function' && !this.adapter.isLivePage()) return;
+    if (!this._isAdapterUsable()) {
+      this._cancelPlayerBindingWait();
+      this._playerReady = Promise.resolve(null);
+      document.querySelector('.srm-toggle-btn')?.remove();
+      return this._playerReady;
+    }
+
+    document.querySelector('.srm-toggle-btn')?.remove();
+    this._cancelPlayerBindingWait();
+
+    const token = ++this._playerBindToken;
+    const boundAdapter = this.adapter;
+    this._playerReady = this._waitForPlayer({ token, matchOptions }).catch(() => null);
 
     this._playerReady.then((video) => {
-      if (video && this.adapter && !this.active) {
+      if (!this._matchesPlayer(video, matchOptions)) return;
+      if (token !== this._playerBindToken || this.adapter !== boundAdapter) return;
+
+      boundAdapter.injectToggleButton(() => {
+        void this.toggle();
+      });
+      this._syncToggleButton();
+    });
+
+    return this._playerReady;
+  }
+
+  _autoEnableIfNeeded() {
+    if (!this._autoRadio || !this._isAdapterUsable() || this.active) return;
+
+    this._playerReady.then((video) => {
+      if (this._matchesPlayer(video) && this._isAdapterUsable() && !this.active) {
         void this.enable();
       }
     });
@@ -119,16 +239,12 @@ class RadioModeCore {
   /**
    * 플레이어가 DOM에 로드될 때까지 대기
    */
-  _waitForPlayer() {
+  _waitForPlayer(options = {}) {
+    const { token, matchOptions = null } = options;
+
     return new Promise((resolve, reject) => {
       if (!this.adapter) {
         resolve(null);
-        return;
-      }
-
-      const video = this.adapter.findVideoElement();
-      if (video) {
-        resolve(video);
         return;
       }
 
@@ -139,23 +255,61 @@ class RadioModeCore {
       }
 
       let settled = false;
-      const observer = new MutationObserver(() => {
-        if (!this.adapter) return;
-        const v = this.adapter.findVideoElement();
-        if (v && !settled) {
-          settled = true;
-          observer.disconnect();
-          resolve(v);
-        }
-      });
-      observer.observe(root, { childList: true, subtree: true });
+      let observer = null;
+      let timeoutId = null;
+      let pollIntervalId = null;
 
-      setTimeout(() => {
-        if (!settled) {
-          settled = true;
+      const cleanup = () => {
+        if (observer) {
           observer.disconnect();
-          reject(new Error('[StreamRadio] 플레이어 없음'));
+          observer = null;
         }
+        if (pollIntervalId) {
+          clearInterval(pollIntervalId);
+          pollIntervalId = null;
+        }
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (this._cancelPlayerWait === cancelWait) {
+          this._cancelPlayerWait = null;
+        }
+      };
+
+      const finish = (fn, value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        fn(value);
+      };
+
+      const cancelWait = () => {
+        finish(reject, new Error('[StreamRadio] 플레이어 대기 취소'));
+      };
+
+      const checkForPlayer = () => {
+        if (!this.adapter || token !== this._playerBindToken) {
+          cancelWait();
+          return;
+        }
+
+        const video = this.adapter.findVideoElement();
+        if (this._matchesPlayer(video, matchOptions)) {
+          finish(resolve, video);
+        }
+      };
+
+      this._cancelPlayerWait = cancelWait;
+      checkForPlayer();
+      if (settled) return;
+
+      observer = new MutationObserver(checkForPlayer);
+      observer.observe(root, { childList: true, subtree: true });
+      pollIntervalId = setInterval(checkForPlayer, 250);
+
+      timeoutId = setTimeout(() => {
+        finish(reject, new Error('[StreamRadio] 플레이어 없음'));
       }, 30000);
     });
   }
@@ -165,7 +319,7 @@ class RadioModeCore {
    */
   async enable() {
     return this._queueTransition(async () => {
-      if (!this.adapter || this.active) {
+      if (!this._isAdapterUsable() || this.active) {
         return this._getStatePayload();
       }
 
@@ -190,7 +344,7 @@ class RadioModeCore {
 
   toggle() {
     return this._queueTransition(async () => {
-      if (!this.adapter) {
+      if (!this._isAdapterUsable()) {
         return this._getStatePayload();
       }
 
@@ -210,32 +364,74 @@ class RadioModeCore {
     return run;
   }
 
-  async _enableInternal() {
-    const video = (await this._playerReady) || this.adapter?.findVideoElement();
-    if (!this.adapter || !video) return;
+  async _enableInternal(options = {}) {
+    const {
+      previousVideo = null,
+      forceRebind = false,
+      playerReadyDelayMs = 0,
+    } = options;
+    const matchOptions = this._createPlayerMatchOptions(previousVideo);
+
+    if (!this._isAdapterUsable()) return;
+
+    let video = null;
+    if (forceRebind) {
+      video = await this._refreshPlayerBinding({ previousVideo });
+    } else {
+      video = this.adapter?.findVideoElement() || (await this._playerReady);
+      if (!this._matchesPlayer(video, matchOptions)) {
+        video = await this._refreshPlayerBinding({ previousVideo });
+      }
+    }
+
+    if (playerReadyDelayMs > 0) {
+      await this._sleep(playerReadyDelayMs);
+      const refreshedVideo = this.adapter?.findVideoElement();
+      if (this._matchesPlayer(refreshedVideo, matchOptions)) {
+        video = refreshedVideo;
+      }
+    }
+
+    if (!this._matchesPlayer(video, matchOptions)) return;
+
+    const oldVideo = this._videoRef;
+    const oldVolumeHandler = this._volumeHandler;
+    if (oldVideo && oldVolumeHandler) {
+      oldVideo.removeEventListener('volumechange', oldVolumeHandler);
+    }
 
     this._videoRef = video;
-
-    // 비디오 렌더링만 숨기고 오디오는 유지한다.
-    video.style.opacity = '0';
-
-    // 대역폭 절약은 page context의 livePlayer API만 사용한다.
-    window.__bandwidthSaver?.enable();
-
-    const streamerInfo = await this.adapter.getStreamerInfo();
     this._volumeHandler = () => {
       const effectiveVol = video.muted ? 0 : video.volume;
       RadioOverlayUI.updateVolume(effectiveVol);
     };
+
+    // 비디오 렌더링만 숨기고 오디오는 유지한다.
+    video.style.opacity = '0';
+
+    // 대역폭 절약은 page context의 플레이어 API만 사용한다.
+    window.__bandwidthSaver?.enable();
+
+    const streamerInfo = await this.adapter.getStreamerInfo();
+    if (!this._matchesPlayer(video, matchOptions)) {
+      video.style.opacity = '';
+      window.__bandwidthSaver?.disable();
+      return;
+    }
+
     video.addEventListener('volumechange', this._volumeHandler);
 
     const initialVol = video.muted ? 0 : video.volume;
+    const speechEqState = await this._attachSpeechEQ(video);
     RadioOverlayUI.show(document.body, streamerInfo, {
       onDisable: () => {
         void this.disable();
       },
       onVolumeChange: (vol) => this._setVolume(vol),
       currentVolume: initialVol,
+      speechEqState,
+      onSpeechEqToggle: () => this._toggleSpeechEQ(),
+      onSpeechEqPresetCycle: () => this._cycleSpeechEQPreset(),
     });
 
     this.active = true;
@@ -247,16 +443,17 @@ class RadioModeCore {
 
   async _disableInternal() {
     window.__bandwidthSaver?.disable();
+    await this._detachSpeechEQ();
 
     const video = this._videoRef || this.adapter?.findVideoElement();
     if (video) {
       if (this._volumeHandler) {
         video.removeEventListener('volumechange', this._volumeHandler);
-        this._volumeHandler = null;
       }
       video.style.opacity = '';
     }
 
+    this._volumeHandler = null;
     RadioOverlayUI.hide();
     window._srmList?._unbindNavIntercept();
 
@@ -269,11 +466,57 @@ class RadioModeCore {
   }
 
   _getStatePayload() {
-    if (!this.adapter) {
+    if (!this._isAdapterUsable()) {
       return { active: null, site: null };
     }
 
     return { active: this.active, site: this.adapter.siteName };
+  }
+
+  _getSpeechEqState() {
+    return window.__speechEQ?.getState?.() || {
+      enabled: false,
+      preset: 'clarity',
+      label: '선명',
+      supported: Boolean(window.AudioContext || window.webkitAudioContext),
+      attached: Boolean(this._videoRef),
+      activeProcessing: false,
+      contextState: 'idle',
+    };
+  }
+
+  async _attachSpeechEQ(video) {
+    if (!window.__speechEQ?.attach) {
+      return this._getSpeechEqState();
+    }
+
+    return window.__speechEQ.attach(video);
+  }
+
+  async _detachSpeechEQ() {
+    if (!window.__speechEQ?.detach) {
+      return this._getSpeechEqState();
+    }
+
+    return window.__speechEQ.detach();
+  }
+
+  async _toggleSpeechEQ() {
+    const video = this._videoRef || this.adapter?.findVideoElement?.();
+    const state = window.__speechEQ?.toggle
+      ? await window.__speechEQ.toggle(video)
+      : this._getSpeechEqState();
+    RadioOverlayUI.updateSpeechEQ?.(state);
+    return state;
+  }
+
+  async _cycleSpeechEQPreset() {
+    const video = this._videoRef || this.adapter?.findVideoElement?.();
+    const state = window.__speechEQ?.cyclePreset
+      ? await window.__speechEQ.cyclePreset(video)
+      : this._getSpeechEqState();
+    RadioOverlayUI.updateSpeechEQ?.(state);
+    return state;
   }
 
   _syncToggleButton() {
@@ -285,16 +528,15 @@ class RadioModeCore {
 
   /**
    * URL 변경 감지 (SPA 네비게이션: 추천방송 클릭 등)
-   * URL이 바뀌면 스트리머 정보를 다시 가져와 오버레이 업데이트
    */
   _startUrlWatch() {
     this._stopUrlWatch();
     this._lastUrl = location.href;
 
-    // 1) 폴링 (fallback — 500ms로 단축)
+    // 1) 폴링 (fallback)
     this._urlCheckInterval = setInterval(() => {
       this._checkUrlChange();
-    }, 500);
+    }, 1500);
 
     // 2) page context에서 보내는 pushState/replaceState 감지 메시지 수신
     this._urlMessageHandler = (e) => {
@@ -319,48 +561,51 @@ class RadioModeCore {
   }
 
   _checkUrlChange() {
-    // 해시만 변경된 경우(#n 등)는 무시 — 리스트 새로고침 등에서 발생
     const stripHash = (url) => url.replace(/#.*$/, '');
     const current = stripHash(location.href);
     const last = stripHash(this._lastUrl);
     const changed = current !== last;
     this._lastUrl = location.href;
     if (changed) {
-      this._onUrlChanged();
+      const token = ++this._urlChangeToken;
+      void this._onUrlChanged(token);
     }
   }
 
-  async _onUrlChanged() {
-    if (!this.active || !this.adapter) return;
-    console.log('[StreamRadio] URL 변경 감지 → 라디오 모드 재시작:', location.href);
+  _onUrlChanged(token) {
+    return this._queueTransition(async () => {
+      if (token !== this._urlChangeToken) return;
+      if (!this.active || !this.adapter) return;
 
-    // 1) 모든 옵저버/채팅 즉시 정지
-    const chat = window._srmChat;
-    if (chat) {
-      chat._stopChatLayoutObserver();
-      chat._stopChatScrollController();
-      chat._chatVisible = false;
-      chat._setChatState(false);
-    }
-    window._srmActions?._stopActionStateSync();
+      console.log('[StreamRadio] URL 변경 감지 → 라디오 모드 재바인딩:', location.href);
 
-    // 2) 현재 라디오 모드 완전 해제 (오버레이 제거, 대역폭 복원)
-    await this._disableInternal();
+      const previousVideo = this._videoRef;
 
-    // 3) SOOP이 새 방송 데이터를 로드할 때까지 대기
-    //    document.title 변경을 감지 (최대 15초)
-    const oldTitle = document.title;
-    for (let i = 0; i < 30; i++) {
-      await new Promise((r) => setTimeout(r, 500));
-      if (!this.adapter) return;
-      if (document.title !== oldTitle) break;
-    }
-    // title 변경 후 추가 안정화 대기
-    await new Promise((r) => setTimeout(r, 1000));
-    if (!this.adapter) return;
+      // 1) 모든 옵저버/채팅 즉시 정지
+      const chat = window._srmChat;
+      if (chat) {
+        chat._stopChatLayoutObserver();
+        chat._stopChatScrollController();
+        chat._chatVisible = false;
+        chat._setChatState(false);
+      }
+      window._srmActions?._stopActionStateSync();
 
-    // 4) 라디오 모드 재활성화 (새 비디오, 새 스트리머 정보, 새 오버레이)
-    await this._enableInternal();
+      // 2) 현재 라디오 모드 완전 해제 (오버레이 제거, 대역폭 복원)
+      await this._disableInternal();
+
+      // 3) 비라이브 페이지로 이동한 경우 여기서 중단
+      if (token !== this._urlChangeToken || !this._isAdapterUsable()) {
+        return;
+      }
+
+      // 4) 새 플레이어와 새 UI로 재연결
+      await this._enableInternal({
+        previousVideo,
+        forceRebind: true,
+        playerReadyDelayMs: 300,
+      });
+    });
   }
 
   _setVolume(vol) {
@@ -413,13 +658,17 @@ class RadioModeCore {
   _saveState() {
     chrome.storage.local.set({ radioMode: this.active });
   }
+
+  _sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 }
 
 window.__radioModeCore = new RadioModeCore();
 
 /**
  * 로컬 키보드 단축키 핸들러
- * SOOP 페이지에서만 동작 (content script 스코프)
+ * SOOP 방송 페이지에서만 동작 (content script 스코프)
  */
 (() => {
   let shortcutsEnabled = true;
@@ -436,6 +685,7 @@ window.__radioModeCore = new RadioModeCore();
 
   document.addEventListener('keydown', (e) => {
     if (!shortcutsEnabled) return;
+    if (!window.__radioModeCore?.isShortcutAvailable()) return;
     if (!e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) return;
 
     const key = e.key.toLowerCase();

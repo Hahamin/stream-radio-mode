@@ -81,6 +81,18 @@ Radio mode automatically switches to the lowest quality stream via SOOP's intern
 
 ---
 
+## 🧪 Validation
+
+- Automated: run `npm test` to check JavaScript syntax for tracked source files.
+- Manual smoke 1: on non-live SOOP pages, the popup should show unsupported status and `Alt + R` / `Alt + B` should do nothing.
+- Manual smoke 2: on a live page, the `🎧` button should appear and radio mode should lower quality once and restore it once when toggled off.
+- Manual smoke 3: while radio mode is on, moving to another SOOP stream in the SPA should rebind streamer info, toggle button, volume sync, and chat UI to the new player.
+- Manual smoke 4: stealth mode and minimize mode should still toggle off correctly after the extension service worker restarts.
+- Manual smoke 5: with multiple browser windows open, stealth mode tab switching and minimize mode should affect only the window that sent the request.
+- Manual smoke 6: rapid radio mode toggles should leave stream quality matching the final user action.
+
+---
+
 ## 🤝 Contributing
 
 Bug reports, feature requests, and PRs are welcome!

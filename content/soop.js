@@ -1,16 +1,6 @@
 /**
  * Stream Radio Mode — 숲(SOOP) 어댑터
  * sooplive.com (구 sooplive.co.kr) 라이브 스트리밍 전용
- *
- * 실제 DOM 구조 (2026-03 확인):
- *   #webplayer > #webplayer_contents
- *     .skin_object          ← 컨트롤 오버레이
- *     #player_area
- *       .htmlplayer_wrap    ← video 요소 포함
- *     .wrapping_player_bottom
- *       .broadcast_information
- *         #bjThumbnail      ← BJ 프로필 (a.thumb > img)
- *         .nickname         ← BJ 이름
  */
 
 class SoopAdapter {
@@ -18,42 +8,135 @@ class SoopAdapter {
     this.siteName = 'soop';
   }
 
+  static isLivePageUrl(rawUrl = location.href) {
+    try {
+      const url = new URL(rawUrl, location.origin);
+      const hostname = url.hostname.toLowerCase();
+      if (hostname !== 'play.sooplive.co.kr' && hostname !== 'play.sooplive.com') {
+        return false;
+      }
+
+      const segments = url.pathname.split('/').filter(Boolean);
+      if (!segments.length || segments.length > 2) {
+        return false;
+      }
+
+      const [bjId, broadNo = ''] = segments;
+      const reservedPaths = new Set([
+        'directory',
+        'live',
+        'login',
+        'search',
+        'signup',
+      ]);
+
+      if (!bjId || reservedPaths.has(bjId)) {
+        return false;
+      }
+
+      if (!broadNo) {
+        return true;
+      }
+
+      return /^\d+$/.test(broadNo);
+    } catch {
+      return false;
+    }
+  }
+
+  static isElementVisible(element) {
+    if (!element) return false;
+
+    const style = window.getComputedStyle(element);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+      return false;
+    }
+
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  static getInjectedPlayerState() {
+    return window.__srmSoopPageState || null;
+  }
+
   /**
    * 현재 페이지가 라이브 시청 페이지인지 판단
    */
   isLivePage() {
-    const url = location.href;
-    return (url.includes('play.sooplive.co.kr/') || url.includes('play.sooplive.com/'))
-      && !url.endsWith('/live/all')
-      && !url.endsWith('sooplive.co.kr/')
-      && !url.endsWith('sooplive.com/')
-      && !url.includes('/directory/');
+    if (!SoopAdapter.isLivePageUrl(location.href)) {
+      return false;
+    }
+
+    const offlinePanel = document.querySelector('#notBroadingList');
+    if (SoopAdapter.isElementVisible(offlinePanel)) {
+      return false;
+    }
+
+    return true;
   }
 
   /**
    * 비디오 요소 찾기
    */
   findVideoElement() {
+    if (!this.isLivePage()) return null;
+
+    const mainMedia = this._getMainMediaElement();
+    if (Number.isFinite(this._scoreVideoElement(mainMedia))) {
+      return mainMedia;
+    }
+
     const selectors = [
-      '.htmlplayer_wrap video',
+      '#player_area .htmlplayer_wrap video',
       '#player_area video',
+      '#webplayer_contents #player_area video',
+      '#webplayer #player_area video',
       '#webplayer_contents video',
       '#webplayer video',
-      'video',
     ];
+
+    const seen = new Set();
+    const candidates = [];
+
     for (const sel of selectors) {
-      const el = document.querySelector(sel);
-      if (el) return el;
+      const matches = document.querySelectorAll(sel);
+      matches.forEach((el) => {
+        if (!(el instanceof HTMLVideoElement) || seen.has(el)) return;
+        seen.add(el);
+        candidates.push(el);
+      });
     }
-    return null;
+
+    const scored = candidates
+      .map((video) => ({ video, score: this._scoreVideoElement(video) }))
+      .filter(({ score }) => Number.isFinite(score))
+      .sort((a, b) => b.score - a.score);
+
+    return scored[0]?.video || null;
+  }
+
+  getStreamIdentity(video = null) {
+    const injectedState = SoopAdapter.getInjectedPlayerState();
+    const currentVideo = video instanceof HTMLVideoElement ? video : this._getMainMediaElement();
+    const [bjId = '', broadNoFromPath = ''] = location.pathname.split('/').filter(Boolean);
+    const broadNo = String(injectedState?.broadNo || broadNoFromPath || '');
+
+    return [
+      bjId,
+      broadNo,
+      injectedState?.mainMediaId || currentVideo?.id || '',
+      injectedState?.mainMediaSrc || currentVideo?.currentSrc || currentVideo?.src || '',
+      String(currentVideo?.readyState || 0),
+    ].join('|');
   }
 
   /**
    * 플레이어 컨테이너 요소
    */
   getPlayerContainer() {
-    // #player_area = 비디오 영역만 (548px)
-    // #webplayer_contents는 채팅(.wrapping.side) 포함하여 4000px+로 너무 큼
+    if (!this.isLivePage()) return null;
+
     const selectors = [
       '#player_area',
       '#webplayer_contents',
@@ -63,7 +146,7 @@ class SoopAdapter {
       const el = document.querySelector(sel);
       if (el) return el;
     }
-    // fallback
+
     const video = this.findVideoElement();
     if (video) {
       let parent = video.parentElement;
@@ -82,7 +165,6 @@ class SoopAdapter {
     const info = { name: '', title: '', avatarUrl: '' };
 
     try {
-      // BJ 프로필 이미지 — #bjThumbnail 내부의 img (가장 정확)
       const avatarSelectors = [
         '#bjThumbnail img',
         '.thumbnail_box img',
@@ -96,8 +178,6 @@ class SoopAdapter {
         }
       }
 
-      // BJ 이름 + 방송 제목
-      // 숲은 "BJ박성진 · 소통x성진 돌싱즈 BGM" 형태로 닉네임 영역에 합쳐져 있을 수 있음
       const nicknameEl = document.querySelector(
         '.broadcast_information .nickname'
       ) || document.querySelector('.wrapping_player_bottom .nickname')
@@ -105,7 +185,6 @@ class SoopAdapter {
 
       if (nicknameEl?.textContent?.trim()) {
         const fullText = nicknameEl.textContent.trim();
-        // "BJ이름 · 방송제목" 또는 "BJ이름 - 방송제목" 패턴 분리
         const separators = [' · ', ' - ', ' | '];
         let separated = false;
         for (const sep of separators) {
@@ -118,12 +197,10 @@ class SoopAdapter {
           }
         }
         if (!separated) {
-          // 분리자가 없으면 전체를 이름으로
           info.name = fullText;
         }
       }
 
-      // 방송 제목 — #infoTitle (실제 DOM 확인)
       if (!info.title) {
         const titleSelectors = [
           '#infoTitle',
@@ -140,7 +217,6 @@ class SoopAdapter {
         }
       }
 
-      // fallback: document.title에서 이름 추출 ("스트리머 - SOOP" 형식)
       if (!info.name) {
         const titleMatch = document.title.match(/^(.+?)\s*[-–]\s*SOOP/);
         if (titleMatch) {
@@ -148,11 +224,10 @@ class SoopAdapter {
         }
       }
 
-      // fallback: URL에서 BJ ID
       if (!info.name) {
-        const match = location.pathname.match(/\/([^/]+)\/?$/);
-        if (match) {
-          info.name = decodeURIComponent(match[1]);
+        const [bjId] = location.pathname.split('/').filter(Boolean);
+        if (bjId) {
+          info.name = decodeURIComponent(bjId);
         }
       }
     } catch (e) {
@@ -166,6 +241,8 @@ class SoopAdapter {
    * 플레이어 컨트롤바에 라디오 모드 토글 버튼 삽입
    */
   injectToggleButton(onToggle) {
+    if (!this.isLivePage()) return;
+
     document.querySelector('.srm-toggle-btn')?.remove();
 
     const btn = document.createElement('button');
@@ -181,43 +258,108 @@ class SoopAdapter {
       onToggle();
     });
 
-    // #liveButton 바로 뒤에 삽입 (.ctrl 내부, LIVE 옆)
     const liveBtn = document.querySelector('#liveButton');
     if (liveBtn) {
       liveBtn.insertAdjacentElement('afterend', btn);
       return;
     }
 
-    // fallback: .ctrl 영역 끝에 삽입
     const ctrl = document.querySelector('.player_ctrlBox .ctrl');
     if (ctrl) {
       ctrl.appendChild(btn);
       return;
     }
 
-    // fallback: #webplayer에 플로팅
     const container = document.querySelector('#webplayer') || this.getPlayerContainer();
     if (container) {
       btn.style.cssText = 'position:absolute;bottom:40px;left:150px;z-index:10001;background:rgba(0,0,0,0.6);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;';
-      container.style.position = container.style.position || 'relative';
+      if (!container.style.position) {
+        container.style.position = 'relative';
+      }
       container.appendChild(btn);
     }
   }
 
+  _scoreVideoElement(video) {
+    if (!(video instanceof HTMLVideoElement) || !video.isConnected) {
+      return Number.NEGATIVE_INFINITY;
+    }
+
+    const style = window.getComputedStyle(video);
+    const rect = video.getBoundingClientRect();
+    const area = rect.width * rect.height;
+    const currentSrc = video.currentSrc || video.src || '';
+
+    if (style.display === 'none' || style.visibility === 'hidden' || video.hidden) {
+      return Number.NEGATIVE_INFINITY;
+    }
+
+    let score = 0;
+    const mainMedia = this._getMainMediaElement();
+
+    if (area > 0) score += Math.min(area / 1000, 2000);
+    if (currentSrc) score += 120;
+    if (currentSrc.startsWith('blob:')) score += 60;
+    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) score += 40;
+    if (!video.paused) score += 80;
+    if (mainMedia && video === mainMedia) score += 520;
+    if (video.id === 'livePlayer') score += 200;
+    if (video.id === 'da_video') score += 160;
+    if (video.closest('#player_area')) score += 80;
+    if (video.closest('.htmlplayer_wrap')) score += 40;
+    if (style.opacity === '0') score -= 20;
+    if (video.id === 'pipMedia') score -= 300;
+    if (currentSrc.startsWith('data:')) score -= 240;
+
+    return score;
+  }
+
+  _getMainMediaElement() {
+    const injectedState = SoopAdapter.getInjectedPlayerState();
+    if (injectedState?.mainMediaId) {
+      const bridgedMedia = document.getElementById(injectedState.mainMediaId);
+      if (bridgedMedia instanceof HTMLVideoElement) {
+        return bridgedMedia;
+      }
+    }
+
+    const mainMedia = window.livePlayer?.mainMedia;
+    return mainMedia instanceof HTMLVideoElement ? mainMedia : null;
+  }
 }
 
 // 어댑터 등록
 (() => {
   if (!location.hostname.includes('sooplive.co.kr') && !location.hostname.includes('sooplive.com')) return;
 
+  window.__srmSoopPageState = window.__srmSoopPageState || {
+    mainMediaId: null,
+    mainMediaSrc: null,
+    broadNo: null,
+    quality: null,
+  };
+
   let adapter = null;
+  let lastUrl = location.href;
+  let syncQueue = Promise.resolve();
+  const scheduleSync = (options = {}) => {
+    const currentUrl = location.href;
+    const urlChanged = currentUrl !== lastUrl;
+    lastUrl = currentUrl;
+    if (!urlChanged && options.force !== true) return;
+    void queueSync({ urlChanged: true });
+  };
 
-  async function syncAdapterState() {
+  async function syncAdapterState(options = {}) {
+    const { urlChanged = false } = options;
     const { enableSoop = true } = await chrome.storage.local.get(['enableSoop']);
+    const nextAdapter = adapter || new SoopAdapter();
+    const isLivePage = nextAdapter.isLivePage();
 
-    if (enableSoop) {
-      if (!adapter) {
-        adapter = new SoopAdapter();
+    if (enableSoop && isLivePage) {
+      adapter = nextAdapter;
+
+      if (!urlChanged || !window.__radioModeCore?.active) {
         window.__radioModeCore?.setAdapter(adapter);
       }
       return;
@@ -231,11 +373,49 @@ class SoopAdapter {
     }
   }
 
+  function queueSync(options = {}) {
+    syncQueue = syncQueue.then(
+      () => syncAdapterState(options),
+      () => syncAdapterState(options)
+    );
+    return syncQueue;
+  }
+
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === 'local' && changes.enableSoop) {
-      void syncAdapterState();
+      void queueSync();
     }
   });
 
-  void syncAdapterState();
+  window.addEventListener('message', (event) => {
+    if (event.source !== window) return;
+
+    if (event.data?.type === 'srm-player-state' && event.data?.state?.site === 'soop') {
+      window.__srmSoopPageState = {
+        ...window.__srmSoopPageState,
+        ...event.data.state,
+      };
+      return;
+    }
+
+    if (event.data?.type === 'srm-url-changed') {
+      scheduleSync();
+    }
+  });
+
+  window.addEventListener('popstate', () => {
+    scheduleSync();
+  });
+
+  window.addEventListener('pageshow', () => {
+    scheduleSync({ force: true });
+  });
+
+  window.__bandwidthSaver?._ensureInjected();
+
+  window.setInterval(() => {
+    scheduleSync();
+  }, 2000);
+
+  void queueSync();
 })();

@@ -14,6 +14,7 @@
         "content/ui-chat.js",
         "content/ui.js",
         "content/bandwidth.js",
+        "content/speech-eq.js",
         "content/core.js",
         "content/boss.js",
         "content/soop.js"

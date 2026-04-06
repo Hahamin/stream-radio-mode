@@ -18,6 +18,15 @@ function isSoopTab(tab) {
   return Boolean(tab?.url && /:\/\/([^/]+\.)?sooplive\.(co\.kr|com)\//.test(tab.url));
 }
 
+async function getActiveTabContext() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return {
+    tab: tab || null,
+    tabId: tab?.id ?? null,
+    windowId: tab?.windowId ?? null,
+  };
+}
+
 async function init() {
   const settings = await chrome.storage.local.get([
     'autoRadio', 'enableSoop', 'shortcutsEnabled'
@@ -29,8 +38,20 @@ async function init() {
   shortcutKeys.classList.toggle('disabled', !shortcutsToggle.checked);
 
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) {
+    const { tab, tabId, windowId } = await getActiveTabContext();
+    minimizeToggle.checked = false;
+
+    if (windowId !== null) {
+      try {
+        const minimizeState = await chrome.runtime.sendMessage({
+          action: 'get-minimize-state',
+          windowId,
+        });
+        minimizeToggle.checked = Boolean(minimizeState?.minimized);
+      } catch {}
+    }
+
+    if (tabId) {
       if (isSoopTab(tab) && settings.enableSoop === false) {
         updateStatusDisabled();
         radioToggle.checked = false;
@@ -38,7 +59,7 @@ async function init() {
         return;
       }
 
-      const radioState = await chrome.tabs.sendMessage(tab.id, { action: 'get-state' });
+      const radioState = await chrome.tabs.sendMessage(tabId, { action: 'get-state' });
       if (radioState) {
         updateStatus(radioState.active, radioState.site);
         radioToggle.checked = radioState.active;
@@ -49,10 +70,13 @@ async function init() {
       try {
         const bossState = await chrome.runtime.sendMessage({
           action: 'get-boss-state',
-          tabId: tab.id,
+          tabId,
+          windowId,
         });
         if (bossState) bossToggle.checked = bossState.active;
       } catch {}
+    } else {
+      updateStatus(null, null);
     }
   } catch {
     updateStatus(null, null);
@@ -99,9 +123,9 @@ function updateStatus(active, site) {
 
 radioToggle.addEventListener('change', async () => {
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) {
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'toggle-radio' });
+    const { tabId } = await getActiveTabContext();
+    if (tabId) {
+      const response = await chrome.tabs.sendMessage(tabId, { action: 'toggle-radio' });
       if (response) {
         updateStatus(response.active, response.site);
         radioToggle.checked = Boolean(response.active);
@@ -114,11 +138,12 @@ radioToggle.addEventListener('change', async () => {
 
 bossToggle.addEventListener('change', async () => {
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) {
+    const { tabId, windowId } = await getActiveTabContext();
+    if (tabId) {
       const response = await chrome.runtime.sendMessage({
         action: 'toggle-boss',
-        tabId: tab.id,
+        tabId,
+        windowId,
       });
       bossToggle.checked = Boolean(response?.active);
     }
@@ -129,8 +154,10 @@ bossToggle.addEventListener('change', async () => {
 
 minimizeToggle.addEventListener('change', async () => {
   try {
+    const { windowId } = await getActiveTabContext();
     const response = await chrome.runtime.sendMessage({
       action: 'toggle-minimize',
+      windowId,
     });
     minimizeToggle.checked = Boolean(response?.minimized);
   } catch {
