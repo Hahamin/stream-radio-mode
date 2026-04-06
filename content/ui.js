@@ -6,6 +6,10 @@ const RadioOverlayUI = {
   _overlayEl: null,
   _callbacks: null,
   _externalUpdate: false,
+  _previewCaptureBlocked: false,
+  _lastPreviewCaptureAt: 0,
+  _lastPreviewFrameUrl: '',
+  _previousScrollLock: null,
 
   /** 외부(비디오)에서 볼륨 변경 시 슬라이더 동기화 */
   updateVolume(vol) {
@@ -38,9 +42,14 @@ const RadioOverlayUI = {
     this.hide();
     this._callbacks = callbacks;
     window._srmChat?._setChatState(false);
+    this._lockPageScroll();
 
     const overlay = document.createElement('div');
     overlay.className = 'srm-overlay';
+    if (info?.contentType === 'vod') {
+      overlay.classList.add('srm-overlay-vod');
+    }
+    overlay.dataset.srmPreviewFallback = info.thumbnailUrl || '';
     overlay.innerHTML = this._buildHTML(
       info,
       callbacks?.currentVolume ?? 0.5,
@@ -50,6 +59,7 @@ const RadioOverlayUI = {
     this._overlayEl = overlay;
 
     this._bindEvents(overlay, callbacks);
+    this._bindMediaPreviewEvents(overlay);
     this._applySpeechEQState(overlay, callbacks?.speechEqState);
     this._startStatsSync(overlay);
     window._srmActions?._updateActionCounts(overlay);
@@ -62,6 +72,8 @@ const RadioOverlayUI = {
    */
   updateInfo(info) {
     if (!this._overlayEl) return;
+
+    this._overlayEl.dataset.srmPreviewFallback = info.thumbnailUrl || '';
 
     const nameEl = this._overlayEl.querySelector('.srm-streamer-name');
     if (nameEl) nameEl.textContent = info.name || '알 수 없음';
@@ -97,6 +109,12 @@ const RadioOverlayUI = {
       this._overlayEl.remove();
       this._overlayEl = null;
     }
+
+    this._unlockPageScroll();
+
+    this._previewCaptureBlocked = false;
+    this._lastPreviewCaptureAt = 0;
+    this._lastPreviewFrameUrl = '';
   },
 
   _statsTimer: null,
@@ -104,20 +122,12 @@ const RadioOverlayUI = {
   _startStatsSync(overlay) {
     this._stopStatsSync();
     const update = () => {
-      const viewerEl = document.querySelector('#nAllViewer');
-      const timeEl = document.querySelector('#time');
-      const stateEl = document.querySelector('#broadState');
-
-      const srmViewer = overlay.querySelector('#srm-viewer-count');
-      const srmTime = overlay.querySelector('#srm-broadcast-time');
-      const srmState = overlay.querySelector('#srm-broadcast-state');
-
-      if (srmViewer && viewerEl) srmViewer.textContent = viewerEl.textContent.trim();
-      if (srmTime && timeEl) srmTime.textContent = timeEl.textContent.trim();
-      if (srmState && stateEl) srmState.textContent = stateEl.textContent.trim();
+      const stats = this._getStatsSnapshot();
+      this._applyStatsSnapshot(overlay, stats);
+      this._applyMediaPreviewSnapshot(overlay, stats);
     };
     update();
-    this._statsTimer = setInterval(update, 2000);
+    this._statsTimer = setInterval(update, 500);
   },
 
   _stopStatsSync() {
@@ -127,7 +137,398 @@ const RadioOverlayUI = {
     }
   },
 
+  _getStatsSnapshot() {
+    const adapterStats = window.__radioModeCore?.adapter?.getStatsSnapshot?.();
+    if (adapterStats) {
+      return adapterStats;
+    }
+
+    const viewerEl = document.querySelector('#nAllViewer');
+    const timeEl = document.querySelector('#time');
+    const stateEl = document.querySelector('#broadState');
+
+    return {
+      primaryIcon: '👁',
+      primaryText: viewerEl?.textContent?.trim() || '-',
+      secondaryIcon: '⏱',
+      secondaryText: timeEl?.textContent?.trim() || '--:--:--',
+      stateText: stateEl?.textContent?.trim() || '방송중',
+      stateTone: 'live',
+    };
+  },
+
+  _applyStatsSnapshot(overlay, stats) {
+    if (!overlay || !stats) return;
+
+    const primaryIconEl = overlay.querySelector('#srm-primary-stat-icon');
+    const primaryTextEl = overlay.querySelector('#srm-primary-stat-text');
+    const secondaryIconEl = overlay.querySelector('#srm-secondary-stat-icon');
+    const secondaryTextEl = overlay.querySelector('#srm-secondary-stat-text');
+    const stateEl = overlay.querySelector('#srm-broadcast-state');
+    const playbackBtn = overlay.querySelector('[data-action="playback-toggle"]');
+
+    if (primaryIconEl) primaryIconEl.textContent = stats.primaryIcon || '👁';
+    if (primaryTextEl) primaryTextEl.textContent = stats.primaryText || '-';
+    if (secondaryIconEl) secondaryIconEl.textContent = stats.secondaryIcon || '⏱';
+    if (secondaryTextEl) secondaryTextEl.textContent = stats.secondaryText || '--:--:--';
+
+    if (stateEl) {
+      stateEl.textContent = stats.stateText || '방송중';
+      stateEl.classList.toggle('srm-stat-live', stats.stateTone === 'live');
+      stateEl.classList.toggle('srm-stat-vod', stats.stateTone === 'vod');
+    }
+
+    if (playbackBtn) {
+      const isVod = stats.stateTone === 'vod';
+      const isPlaying = ['재생중', '버퍼링', '탐색중'].includes(stats.stateText);
+      playbackBtn.classList.toggle('srm-visible', isVod);
+      playbackBtn.hidden = !isVod;
+      playbackBtn.dataset.playing = String(isPlaying);
+      playbackBtn.textContent = isPlaying ? '⏸ 일시정지' : '▶ 재생';
+    }
+  },
+
+  _applyMediaPreviewSnapshot(overlay, stats) {
+    if (!overlay) return;
+
+    const previewEl = overlay.querySelector('#srm-media-preview');
+    const previewImageEl = overlay.querySelector('#srm-media-preview-image');
+    const currentEl = overlay.querySelector('#srm-media-preview-current');
+    const totalEl = overlay.querySelector('#srm-media-preview-total');
+    const progressBarEl = overlay.querySelector('#srm-media-preview-progress-bar');
+    const statusEl = overlay.querySelector('#srm-media-preview-status');
+    if (!previewEl || !previewImageEl || !currentEl || !totalEl || !progressBarEl || !statusEl) {
+      return;
+    }
+
+    if (stats?.stateTone !== 'vod') {
+      previewEl.classList.remove('srm-visible');
+      previewEl.classList.remove('srm-hovering');
+      previewImageEl.removeAttribute('src');
+      previewImageEl.classList.remove('srm-ready');
+      currentEl.textContent = '--:--';
+      totalEl.textContent = '--:--';
+      progressBarEl.style.width = '0%';
+      statusEl.textContent = '';
+      statusEl.hidden = true;
+      previewEl.dataset.totalSeconds = '';
+      previewEl.dataset.previewImageUrl = '';
+      return;
+    }
+
+    const currentText = stats?.mediaCurrentText || '';
+    const totalText = stats?.mediaTotalText || '';
+    const hasTiming = Boolean(currentText || totalText);
+    const fallbackImageUrl = stats?.thumbnailUrl || overlay.dataset.srmPreviewFallback || '';
+    const capturedFrameUrl = this._getPreviewFrameUrl();
+    const previewImageUrl = capturedFrameUrl || fallbackImageUrl;
+    const progressRatio = typeof stats?.progressRatio === 'number'
+      ? Math.max(0, Math.min(1, stats.progressRatio))
+      : null;
+    const totalSeconds = Number.isFinite(stats?.mediaTotalSeconds) ? stats.mediaTotalSeconds : 0;
+    const shouldShow = Boolean(previewImageUrl || hasTiming);
+
+    previewEl.classList.toggle('srm-visible', shouldShow);
+    previewEl.dataset.totalSeconds = totalSeconds > 0 ? String(totalSeconds) : '';
+    previewEl.dataset.previewImageUrl = previewImageUrl || '';
+
+    if (!shouldShow) {
+      previewImageEl.removeAttribute('src');
+      previewImageEl.classList.remove('srm-ready');
+      currentEl.textContent = '--:--';
+      totalEl.textContent = '--:--';
+      progressBarEl.style.width = '0%';
+      statusEl.textContent = '';
+      statusEl.hidden = true;
+      previewEl.classList.remove('srm-hovering');
+      return;
+    }
+
+    if (previewImageUrl) {
+      previewImageEl.src = previewImageUrl;
+      previewImageEl.classList.add('srm-ready');
+    } else {
+      previewImageEl.removeAttribute('src');
+      previewImageEl.classList.remove('srm-ready');
+    }
+
+    currentEl.textContent = currentText || '--:--';
+    totalEl.textContent = totalText || '--:--';
+    progressBarEl.style.width = progressRatio !== null ? `${(progressRatio * 100).toFixed(2)}%` : '0%';
+    statusEl.textContent = stats?.stateText || '';
+    statusEl.hidden = !Boolean(stats?.stateText);
+  },
+
+  _bindMediaPreviewEvents(overlay) {
+    const progressEl = overlay.querySelector('.srm-media-preview-progress');
+    const hoverEl = overlay.querySelector('#srm-media-preview-hover');
+    const hoverTimeEl = overlay.querySelector('#srm-media-preview-hover-time');
+    const hoverImageEl = overlay.querySelector('#srm-media-preview-hover-image');
+    if (!progressEl || !hoverEl || !hoverTimeEl || !hoverImageEl) {
+      return;
+    }
+
+    let lastSeekAt = 0;
+    let lastSeekRatio = -1;
+
+    const onMove = (event) => {
+      const previewEl = overlay.querySelector('#srm-media-preview');
+      if (!previewEl?.classList.contains('srm-visible')) {
+        return;
+      }
+
+      const totalSeconds = Number(previewEl.dataset.totalSeconds || 0);
+      const previewImageUrl = previewEl.dataset.previewImageUrl || '';
+      const rect = progressEl.getBoundingClientRect();
+      if (!rect.width) return;
+
+      const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      const hoverSeconds = totalSeconds > 0 ? Math.round(totalSeconds * ratio) : 0;
+      const bubbleWidth = hoverEl.getBoundingClientRect().width || 148;
+      const bubbleHalf = bubbleWidth / 2;
+      const bubbleX = Math.max(bubbleHalf, Math.min(rect.width - bubbleHalf, event.clientX - rect.left));
+
+      hoverTimeEl.textContent = this._formatDuration(hoverSeconds);
+      hoverEl.style.left = `${bubbleX}px`;
+      hoverEl.classList.add('srm-visible');
+      previewEl.classList.add('srm-hovering');
+
+      if (previewImageUrl) {
+        hoverImageEl.src = previewImageUrl;
+        hoverImageEl.classList.add('srm-ready');
+      } else {
+        hoverImageEl.removeAttribute('src');
+        hoverImageEl.classList.remove('srm-ready');
+      }
+    };
+
+    const onSeek = (event) => {
+      const previewEl = overlay.querySelector('#srm-media-preview');
+      if (!previewEl?.classList.contains('srm-visible')) {
+        return;
+      }
+
+      const totalSeconds = Number(previewEl.dataset.totalSeconds || 0);
+      const rect = progressEl.getBoundingClientRect();
+      if (!rect.width || totalSeconds <= 0) {
+        return;
+      }
+
+      const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      const now = Date.now();
+      if (Math.abs(ratio - lastSeekRatio) < 0.002 && now - lastSeekAt < 400) {
+        return;
+      }
+      const targetSeconds = Math.round(totalSeconds * ratio);
+      const didSeek = this._seekMediaPreviewToSeconds(targetSeconds);
+      if (!didSeek) {
+        return;
+      }
+
+      lastSeekAt = now;
+      lastSeekRatio = ratio;
+
+      const currentEl = overlay.querySelector('#srm-media-preview-current');
+      const progressBarEl = overlay.querySelector('#srm-media-preview-progress-bar');
+      if (currentEl) {
+        currentEl.textContent = this._formatDuration(targetSeconds);
+      }
+      if (progressBarEl) {
+        progressBarEl.style.width = `${(ratio * 100).toFixed(2)}%`;
+      }
+
+      onMove(event);
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    const onLeave = () => {
+      const previewEl = overlay.querySelector('#srm-media-preview');
+      hoverEl.classList.remove('srm-visible');
+      previewEl?.classList.remove('srm-hovering');
+    };
+
+    progressEl.addEventListener('mousemove', onMove);
+    progressEl.addEventListener('mouseenter', onMove);
+    progressEl.addEventListener('pointerdown', onSeek);
+    progressEl.addEventListener('click', onSeek);
+    progressEl.addEventListener('mouseleave', onLeave);
+  },
+
+  _seekMediaPreviewToSeconds(targetSeconds) {
+    const safeTarget = Math.max(0, Number(targetSeconds) || 0);
+    const video = window.__radioModeCore?._videoRef
+      || window.__radioModeCore?.adapter?.findVideoElement?.()
+      || null;
+    const playerController = window.vodCore?.playerController;
+    let didSeek = false;
+    let clampedTarget = safeTarget;
+    let requestedBridgeSeek = false;
+
+    if (video instanceof HTMLVideoElement && Number.isFinite(video.duration) && video.duration > 0) {
+      clampedTarget = Math.min(safeTarget, video.duration);
+      try {
+        if (typeof video.fastSeek === 'function') {
+          video.fastSeek(clampedTarget);
+        } else {
+          video.currentTime = clampedTarget;
+        }
+        didSeek = true;
+      } catch (_) {
+        try {
+          video.currentTime = clampedTarget;
+          didSeek = true;
+        } catch (_) {}
+      }
+    }
+
+    const fallbackMethods = [
+      'setMediaCurrentTime',
+      'seekMedia',
+      'setSeekTime',
+    ];
+
+    for (const method of fallbackMethods) {
+      if (typeof playerController?.[method] !== 'function') {
+        continue;
+      }
+
+      try {
+        playerController[method](clampedTarget);
+        didSeek = true;
+        break;
+      } catch (_) {}
+    }
+
+    if (playerController && didSeek) {
+      for (const key of ['_seekTime', '_seekingTime', '_playingTime', '_vodPlayingTime']) {
+        if (typeof playerController[key] === 'number') {
+          playerController[key] = clampedTarget;
+        }
+      }
+    }
+
+    try {
+      window.postMessage({
+        type: 'srm-player-control',
+        action: 'seek-vod',
+        seconds: clampedTarget,
+      }, '*');
+      requestedBridgeSeek = true;
+    } catch (_) {}
+
+    if (didSeek || requestedBridgeSeek) {
+      this._lastPreviewCaptureAt = 0;
+      this._lastPreviewFrameUrl = '';
+    }
+
+    return didSeek || requestedBridgeSeek;
+  },
+
+  _getPreviewFrameUrl() {
+    const now = Date.now();
+    if (this._previewCaptureBlocked) {
+      return this._lastPreviewFrameUrl || '';
+    }
+
+    if (this._lastPreviewFrameUrl && now - this._lastPreviewCaptureAt < 5000) {
+      return this._lastPreviewFrameUrl;
+    }
+
+    const video = window.__radioModeCore?._videoRef
+      || window.__radioModeCore?.adapter?.findVideoElement?.()
+      || null;
+
+    if (!(video instanceof HTMLVideoElement)) {
+      return this._lastPreviewFrameUrl || '';
+    }
+
+    if (
+      video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
+      || !Number.isFinite(video.videoWidth)
+      || !Number.isFinite(video.videoHeight)
+      || video.videoWidth < 80
+      || video.videoHeight < 45
+    ) {
+      return this._lastPreviewFrameUrl || '';
+    }
+
+    try {
+      const canvas = document.createElement('canvas');
+      const targetWidth = 360;
+      const targetHeight = Math.max(202, Math.round(targetWidth * (video.videoHeight / video.videoWidth)));
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return this._lastPreviewFrameUrl || '';
+      }
+
+      ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+      this._lastPreviewFrameUrl = canvas.toDataURL('image/jpeg', 0.76);
+      this._lastPreviewCaptureAt = now;
+    } catch (_) {
+      this._previewCaptureBlocked = true;
+    }
+
+    return this._lastPreviewFrameUrl || '';
+  },
+
+  _lockPageScroll() {
+    if (this._previousScrollLock) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    if (!html || !body) return;
+
+    this._previousScrollLock = {
+      htmlOverflow: html.style.overflow,
+      htmlOverflowY: html.style.overflowY,
+      bodyOverflow: body.style.overflow,
+      bodyOverflowY: body.style.overflowY,
+      bodyOverscrollBehavior: body.style.overscrollBehavior,
+    };
+
+    html.style.setProperty('overflow', 'hidden', 'important');
+    html.style.setProperty('overflow-y', 'hidden', 'important');
+    body.style.setProperty('overflow', 'hidden', 'important');
+    body.style.setProperty('overflow-y', 'hidden', 'important');
+    body.style.setProperty('overscroll-behavior', 'none', 'important');
+  },
+
+  _unlockPageScroll() {
+    if (!this._previousScrollLock) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    if (html) {
+      html.style.overflow = this._previousScrollLock.htmlOverflow || '';
+      html.style.overflowY = this._previousScrollLock.htmlOverflowY || '';
+    }
+    if (body) {
+      body.style.overflow = this._previousScrollLock.bodyOverflow || '';
+      body.style.overflowY = this._previousScrollLock.bodyOverflowY || '';
+      body.style.overscrollBehavior = this._previousScrollLock.bodyOverscrollBehavior || '';
+    }
+
+    this._previousScrollLock = null;
+  },
+
+  _formatDuration(totalSeconds) {
+    const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  },
+
   _buildHTML(info, volume, speechEqState = null) {
+    const isVod = info?.contentType === 'vod';
     const avatarHTML = info.avatarUrl
       ? `<img class="srm-streamer-avatar" src="${this._escapeAttr(info.avatarUrl)}" alt="">`
       : `<div class="srm-streamer-avatar srm-no-avatar">${this._getInitial(info.name)}</div>`;
@@ -143,24 +544,82 @@ const RadioOverlayUI = {
     const volPercent = Math.round(volume * 100);
     const volIcon = volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊';
     const initialPresetLabel = this._escapeHTML(speechEqState?.label || '선명');
+    const modeLabel = isVod ? 'VOD RADIO MODE' : 'RADIO MODE';
+    const modeIcon = isVod ? '🎞' : '🎧';
+    const previewChip = isVod ? '다시보기' : 'LIVE';
+    const previewLabel = isVod ? '다시보기 진행 시간' : '현재 재생 시간';
+    const mediaPreviewHTML = isVod
+      ? `
+      <div class="srm-media-preview srm-media-preview-vod" id="srm-media-preview">
+        <img class="srm-media-preview-image srm-media-preview-image-hidden" id="srm-media-preview-image" alt="">
+        <div class="srm-media-preview-meta srm-media-preview-meta-vod">
+          <div class="srm-media-preview-header">
+            <span class="srm-media-preview-chip">${previewChip}</span>
+            <span class="srm-media-preview-state" id="srm-media-preview-status"></span>
+          </div>
+          <div class="srm-media-preview-time-row">
+            <div class="srm-media-preview-time">
+              <span id="srm-media-preview-current">--:--</span>
+              <span class="srm-media-preview-sep">/</span>
+              <span id="srm-media-preview-total">--:--</span>
+            </div>
+          </div>
+        </div>
+        <div class="srm-media-preview-progress srm-media-preview-progress-vod">
+          <div class="srm-media-preview-hover" id="srm-media-preview-hover">
+            <img class="srm-media-preview-hover-image" id="srm-media-preview-hover-image" alt="">
+            <div class="srm-media-preview-hover-time" id="srm-media-preview-hover-time">--:--</div>
+          </div>
+          <div class="srm-media-preview-progress-bar" id="srm-media-preview-progress-bar"></div>
+        </div>
+      </div>`
+      : `
+      <div class="srm-media-preview" id="srm-media-preview">
+        <div class="srm-media-preview-frame">
+          <img class="srm-media-preview-image" id="srm-media-preview-image" alt="">
+          <div class="srm-media-preview-overlay">
+            <span class="srm-media-preview-chip">${previewChip}</span>
+            <span class="srm-media-preview-state" id="srm-media-preview-status"></span>
+          </div>
+        </div>
+        <div class="srm-media-preview-meta">
+          <div class="srm-media-preview-label">${previewLabel}</div>
+          <div class="srm-media-preview-time">
+            <span id="srm-media-preview-current">--:--</span>
+            <span class="srm-media-preview-sep">/</span>
+            <span id="srm-media-preview-total">--:--</span>
+          </div>
+        </div>
+        <div class="srm-media-preview-progress">
+          <div class="srm-media-preview-hover" id="srm-media-preview-hover">
+            <img class="srm-media-preview-hover-image" id="srm-media-preview-hover-image" alt="">
+            <div class="srm-media-preview-hover-time" id="srm-media-preview-hover-time">--:--</div>
+          </div>
+          <div class="srm-media-preview-progress-bar" id="srm-media-preview-progress-bar"></div>
+        </div>
+      </div>`;
 
     return `
       <div class="srm-content">
-      <div class="srm-icon">🎧</div>
-      <div class="srm-label">RADIO MODE</div>
+      <div class="srm-icon">${modeIcon}</div>
+      <div class="srm-label">${modeLabel}</div>
       <div class="srm-streamer-info">
         ${avatarHTML}
         <div class="srm-streamer-name">${this._escapeHTML(info.name || '알 수 없음')}</div>
         <div class="srm-stream-title">${this._escapeHTML(info.title || '')}</div>
         <div class="srm-stream-stats">
-          <span class="srm-stat-item">👁 <span id="srm-viewer-count">-</span></span>
+          <span class="srm-stat-item"><span id="srm-primary-stat-icon">👁</span> <span id="srm-primary-stat-text">-</span></span>
           <span class="srm-stat-sep">·</span>
-          <span class="srm-stat-item">⏱ <span id="srm-broadcast-time">--:--:--</span></span>
+          <span class="srm-stat-item"><span id="srm-secondary-stat-icon">⏱</span> <span id="srm-secondary-stat-text">--:--:--</span></span>
           <span class="srm-stat-sep">·</span>
           <span class="srm-stat-item srm-stat-live" id="srm-broadcast-state">방송중</span>
         </div>
       </div>
+      ${mediaPreviewHTML}
       <div class="srm-actions">
+        <button class="srm-action-btn srm-playback-btn" data-action="playback-toggle" title="재생 또는 일시정지" hidden>
+          ⏸ 일시정지
+        </button>
         <button class="srm-action-btn" data-action="favorite" title="즐겨찾기">
           <span id="srm-fav-icon">☆</span> <span class="srm-action-count" id="srm-fav-count"></span>
         </button>
@@ -256,6 +715,20 @@ const RadioOverlayUI = {
       if (likeBtn) {
         window._srmActions._triggerAction('like', overlay, () => likeBtn.click());
       }
+    });
+
+    overlay.querySelector('[data-action="playback-toggle"]')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        const state = await callbacks?.onPlaybackToggle?.();
+        if (!state?.supported) return;
+        const btn = overlay.querySelector('[data-action="playback-toggle"]');
+        if (!btn) return;
+        btn.hidden = false;
+        btn.classList.add('srm-visible');
+        btn.dataset.playing = String(Boolean(state.playing));
+        btn.textContent = state.playing ? '⏸ 일시정지' : '▶ 재생';
+      } catch (_) {}
     });
 
     const chatToggleBtn = overlay.querySelector('[data-action="chat-toggle"]');

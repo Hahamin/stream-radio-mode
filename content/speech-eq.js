@@ -86,6 +86,7 @@
         attached: Boolean(this._attachedVideo),
         activeProcessing: Boolean(
           this._enabled
+          && this._attachedVideo
           && this._activeSource
           && this._audioContext?.state === 'running'
         ),

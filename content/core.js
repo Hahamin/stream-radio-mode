@@ -10,6 +10,7 @@ class RadioModeCore {
     this.active = false;
     this.adapter = null;
     this._videoRef = null;
+    this._lastNonZeroVolume = 0.5;
     this._volumeHandler = null;
     this._messageListener = null;
     this._playerReady = Promise.resolve(null);
@@ -428,6 +429,7 @@ class RadioModeCore {
         void this.disable();
       },
       onVolumeChange: (vol) => this._setVolume(vol),
+      onPlaybackToggle: () => this._togglePlayback(),
       currentVolume: initialVol,
       speechEqState,
       onSpeechEqToggle: () => this._toggleSpeechEQ(),
@@ -463,6 +465,26 @@ class RadioModeCore {
     this._syncToggleButton();
     this._notifyState();
     this._saveState();
+  }
+
+  async _togglePlayback() {
+    const video = this._videoRef || this.adapter?.findVideoElement?.();
+    if (!(video instanceof HTMLVideoElement)) {
+      return { supported: false, playing: false };
+    }
+
+    try {
+      if (video.paused || video.ended) {
+        await video.play();
+      } else {
+        video.pause();
+      }
+    } catch (_) {}
+
+    return {
+      supported: true,
+      playing: !video.paused && !video.ended,
+    };
   }
 
   _getStatePayload() {
@@ -608,9 +630,51 @@ class RadioModeCore {
     });
   }
 
+  _getCurrentVideo() {
+    return this._videoRef || this.adapter?.findVideoElement?.() || null;
+  }
+
+  _getCurrentVolume() {
+    const video = this._getCurrentVideo();
+    if (!video) return this._lastNonZeroVolume;
+    if (video.muted) return 0;
+    if (Number.isFinite(video.volume)) {
+      return video.volume;
+    }
+    return this._lastNonZeroVolume;
+  }
+
+  _adjustVolume(delta) {
+    const current = this._getCurrentVolume();
+    const baseVolume = current === 0 && delta > 0 ? this._lastNonZeroVolume : current;
+    const nextVolume = Math.round(Math.max(0, Math.min(1, baseVolume + delta)) * 100) / 100;
+    this._setVolume(nextVolume);
+    return nextVolume;
+  }
+
+  _toggleMute() {
+    const video = this._getCurrentVideo();
+    if (!video) return 0;
+
+    const currentVolume = video.muted ? 0 : video.volume;
+    if (currentVolume > 0) {
+      this._lastNonZeroVolume = currentVolume;
+      this._setVolume(0);
+      return 0;
+    }
+
+    const restoreVolume = this._lastNonZeroVolume > 0 ? this._lastNonZeroVolume : 0.5;
+    this._setVolume(restoreVolume);
+    return restoreVolume;
+  }
+
   _setVolume(vol) {
     vol = Math.max(0, Math.min(1, vol));
-    const video = this._videoRef || this.adapter?.findVideoElement();
+    const video = this._getCurrentVideo();
+
+    if (vol > 0) {
+      this._lastNonZeroVolume = vol;
+    }
 
     if (video) {
       if (vol === 0) {
@@ -689,6 +753,7 @@ window.__radioModeCore = new RadioModeCore();
     if (!e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) return;
 
     const key = e.key.toLowerCase();
+    const code = e.code;
 
     if (key === 'r') {
       e.preventDefault();
@@ -699,6 +764,15 @@ window.__radioModeCore = new RadioModeCore();
     } else if (key === 'm') {
       e.preventDefault();
       chrome.runtime.sendMessage({ action: 'toggle-minimize' }).catch(() => {});
+    } else if (key === 'arrowup') {
+      e.preventDefault();
+      window.__radioModeCore?._adjustVolume(0.05);
+    } else if (key === 'arrowdown') {
+      e.preventDefault();
+      window.__radioModeCore?._adjustVolume(-0.05);
+    } else if (key === '0' || code === 'Digit0' || code === 'Numpad0') {
+      e.preventDefault();
+      window.__radioModeCore?._toggleMute();
     }
   });
 })();

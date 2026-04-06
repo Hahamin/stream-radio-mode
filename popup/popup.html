@@ -76,7 +76,7 @@
       <div class="setting-row">
         <div class="setting-label">
           <span class="setting-title">⌨ 단축키</span>
-          <span class="setting-desc">SOOP 방송 페이지에서만 동작</span>
+          <span class="setting-desc">SOOP 방송/VOD 페이지에서만 동작</span>
         </div>
         <label class="toggle">
           <input type="checkbox" id="shortcutsToggle" checked>
@@ -84,7 +84,36 @@
         </label>
       </div>
       <div class="shortcut-keys" id="shortcutKeys">
-        <kbd>Alt</kbd>+<kbd>R</kbd> 라디오 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>B</kbd> 루팡 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>M</kbd> 최소화
+        <kbd>Alt</kbd>+<kbd>R</kbd> 라디오 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>B</kbd> 루팡 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>M</kbd> 최소화 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> 볼륨
+      </div>
+      <button class="shortcut-help-btn" id="shortcutHelpBtn" type="button" aria-expanded="false">
+        설명 보기
+      </button>
+      <div class="shortcut-help-panel" id="shortcutHelpPanel" hidden>
+        <div class="shortcut-help-item">
+          <div class="shortcut-help-keys"><kbd>Alt</kbd> + <kbd>R</kbd></div>
+          <div class="shortcut-help-text">라디오 모드와 비디오 모드를 전환합니다.</div>
+        </div>
+        <div class="shortcut-help-item">
+          <div class="shortcut-help-keys"><kbd>Alt</kbd> + <kbd>B</kbd></div>
+          <div class="shortcut-help-text">루팡 모드를 켜거나 꺼서 탭을 위장합니다.</div>
+        </div>
+        <div class="shortcut-help-item">
+          <div class="shortcut-help-keys"><kbd>Alt</kbd> + <kbd>M</kbd></div>
+          <div class="shortcut-help-text">현재 브라우저 창을 최소화합니다.</div>
+        </div>
+        <div class="shortcut-help-item">
+          <div class="shortcut-help-keys"><kbd>Alt</kbd> + <kbd>↑</kbd></div>
+          <div class="shortcut-help-text">볼륨을 5% 올립니다.</div>
+        </div>
+        <div class="shortcut-help-item">
+          <div class="shortcut-help-keys"><kbd>Alt</kbd> + <kbd>↓</kbd></div>
+          <div class="shortcut-help-text">볼륨을 5% 내립니다.</div>
+        </div>
+        <div class="shortcut-help-item">
+          <div class="shortcut-help-keys"><kbd>Alt</kbd> + <kbd>0</kbd></div>
+          <div class="shortcut-help-text">음소거하거나 직전 볼륨으로 복원합니다.</div>
+        </div>
       </div>
     </div>
   </div>

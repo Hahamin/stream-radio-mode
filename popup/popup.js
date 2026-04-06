@@ -10,9 +10,12 @@ const bossToggle = $('#bossToggle');
 const minimizeToggle = $('#minimizeToggle');
 const shortcutsToggle = $('#shortcutsToggle');
 const shortcutKeys = $('#shortcutKeys');
+const shortcutHelpBtn = $('#shortcutHelpBtn');
+const shortcutHelpPanel = $('#shortcutHelpPanel');
 const enableSoop = $('#enableSoop');
 const statusDot = $('#statusDot');
 const statusText = $('#statusText');
+let shortcutHelpOpen = false;
 
 function isSoopTab(tab) {
   return Boolean(tab?.url && /:\/\/([^/]+\.)?sooplive\.(co\.kr|com)\//.test(tab.url));
@@ -35,7 +38,7 @@ async function init() {
   autoRadio.checked = settings.autoRadio || false;
   enableSoop.checked = settings.enableSoop !== false;
   shortcutsToggle.checked = settings.shortcutsEnabled !== false;
-  shortcutKeys.classList.toggle('disabled', !shortcutsToggle.checked);
+  updateShortcutSection();
 
   try {
     const { tab, tabId, windowId } = await getActiveTabContext();
@@ -81,6 +84,15 @@ async function init() {
   } catch {
     updateStatus(null, null);
   }
+}
+
+function updateShortcutSection() {
+  const enabled = shortcutsToggle.checked;
+  shortcutKeys.classList.toggle('disabled', !enabled);
+  shortcutHelpBtn.classList.toggle('disabled', !enabled);
+  shortcutHelpBtn.textContent = shortcutHelpOpen ? '설명 닫기' : '설명 보기';
+  shortcutHelpBtn.setAttribute('aria-expanded', String(shortcutHelpOpen));
+  shortcutHelpPanel.hidden = !shortcutHelpOpen;
 }
 
 function updateStatusDisabled() {
@@ -176,7 +188,12 @@ enableSoop.addEventListener('change', async () => {
 
 shortcutsToggle.addEventListener('change', () => {
   chrome.storage.local.set({ shortcutsEnabled: shortcutsToggle.checked });
-  shortcutKeys.classList.toggle('disabled', !shortcutsToggle.checked);
+  updateShortcutSection();
+});
+
+shortcutHelpBtn.addEventListener('click', () => {
+  shortcutHelpOpen = !shortcutHelpOpen;
+  updateShortcutSection();
 });
 
 init();
