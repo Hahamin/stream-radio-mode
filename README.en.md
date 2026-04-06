@@ -9,7 +9,7 @@
 
 **Turn off the video. Keep the audio. Pretend to work.**
 
-A Chrome extension that adds radio mode to [SOOP](https://www.sooplive.com/) (Korea's largest live streaming platform).
+A Chrome extension that adds radio mode to [SOOP](https://www.sooplive.com/) live streams and VOD pages.
 
 [Install Now](#-install-30-seconds) · [한국어](README.md)
 

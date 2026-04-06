@@ -429,6 +429,7 @@ class RadioModeCore {
         void this.disable();
       },
       onVolumeChange: (vol) => this._setVolume(vol),
+      onPlaybackToggle: () => this._togglePlayback(),
       currentVolume: initialVol,
       speechEqState,
       onSpeechEqToggle: () => this._toggleSpeechEQ(),
@@ -464,6 +465,26 @@ class RadioModeCore {
     this._syncToggleButton();
     this._notifyState();
     this._saveState();
+  }
+
+  async _togglePlayback() {
+    const video = this._videoRef || this.adapter?.findVideoElement?.();
+    if (!(video instanceof HTMLVideoElement)) {
+      return { supported: false, playing: false };
+    }
+
+    try {
+      if (video.paused || video.ended) {
+        await video.play();
+      } else {
+        video.pause();
+      }
+    } catch (_) {}
+
+    return {
+      supported: true,
+      playing: !video.paused && !video.ended,
+    };
   }
 
   _getStatePayload() {

@@ -1,6 +1,6 @@
 /**
  * Stream Radio Mode — 숲(SOOP) 어댑터
- * sooplive.com (구 sooplive.co.kr) 라이브 스트리밍 전용
+ * sooplive.com (구 sooplive.co.kr) 라이브 + VOD 어댑터
  */
 
 class SoopAdapter {
@@ -162,7 +162,7 @@ class SoopAdapter {
    * 스트리머 정보 추출
    */
   async getStreamerInfo() {
-    const info = { name: '', title: '', avatarUrl: '' };
+    const info = { name: '', title: '', avatarUrl: '', thumbnailUrl: '', contentType: 'live' };
 
     try {
       const avatarSelectors = [
@@ -177,6 +177,8 @@ class SoopAdapter {
           break;
         }
       }
+
+      info.thumbnailUrl = document.querySelector('meta[property="og:image"]')?.content?.trim() || '';
 
       const nicknameEl = document.querySelector(
         '.broadcast_information .nickname'
@@ -249,7 +251,7 @@ class SoopAdapter {
     btn.className = 'srm-toggle-btn';
     btn.innerHTML = `
       🎧
-      <span class="srm-tooltip">라디오 모드 (Alt+R)</span>
+      <div class="srm-tooltip">라디오 모드 (Alt+R)</div>
     `;
     btn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer;border-radius:4px;position:relative;';
     btn.addEventListener('click', (e) => {
@@ -257,6 +259,18 @@ class SoopAdapter {
       e.preventDefault();
       onToggle();
     });
+
+    const fullScreenBtn = document.querySelector('.btn_fullScreen_mode');
+    if (fullScreenBtn?.parentElement) {
+      fullScreenBtn.insertAdjacentElement('beforebegin', btn);
+      return;
+    }
+
+    const screenModeBtn = document.querySelector('.btn_screen_mode');
+    if (screenModeBtn?.parentElement) {
+      screenModeBtn.insertAdjacentElement('beforebegin', btn);
+      return;
+    }
 
     const liveBtn = document.querySelector('#liveButton');
     if (liveBtn) {
@@ -328,6 +342,419 @@ class SoopAdapter {
   }
 }
 
+class SoopVodAdapter {
+  constructor() {
+    this.siteName = 'soop';
+  }
+
+  static isVodPageUrl(rawUrl = location.href) {
+    try {
+      const url = new URL(rawUrl, location.origin);
+      const hostname = url.hostname.toLowerCase();
+      if (hostname !== 'vod.sooplive.co.kr' && hostname !== 'vod.sooplive.com') {
+        return false;
+      }
+
+      const segments = url.pathname.split('/').filter(Boolean);
+      return segments.length === 2 && segments[0] === 'player' && /^\d+$/.test(segments[1]);
+    } catch {
+      return false;
+    }
+  }
+
+  isLivePage() {
+    return SoopVodAdapter.isVodPageUrl(location.href);
+  }
+
+  findVideoElement() {
+    if (!this.isLivePage()) return null;
+
+    const candidates = [
+      document.querySelector('#video'),
+      document.querySelector('#player video#af_video'),
+      document.querySelector('#player video'),
+      document.querySelector('#videoLayer video'),
+      ...document.querySelectorAll('video.af_video'),
+      ...document.querySelectorAll('video'),
+    ];
+
+    const seen = new Set();
+    const scored = candidates
+      .filter((video) => {
+        if (!(video instanceof HTMLVideoElement) || seen.has(video)) return false;
+        seen.add(video);
+        return true;
+      })
+      .map((video) => ({ video, score: this._scoreVideoElement(video) }))
+      .filter(({ score }) => Number.isFinite(score))
+      .sort((a, b) => b.score - a.score);
+
+    return scored[0]?.video || null;
+  }
+
+  getStreamIdentity(video = null) {
+    const currentVideo = video instanceof HTMLVideoElement ? video : this.findVideoElement();
+    const [, vodId = ''] = location.pathname.split('/').filter(Boolean);
+
+    return [
+      'vod',
+      vodId,
+      currentVideo?.id || '',
+      currentVideo?.currentSrc || currentVideo?.src || '',
+      String(currentVideo?.readyState || 0),
+    ].join('|');
+  }
+
+  getPlayerContainer() {
+    if (!this.isLivePage()) return null;
+
+    const selectors = [
+      '#player',
+      '#videoLayer',
+      '#player_area',
+      '#webplayer',
+    ];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el) return el;
+    }
+
+    return this.findVideoElement()?.parentElement || null;
+  }
+
+  async getStreamerInfo() {
+    const info = { name: '', title: '', avatarUrl: '', thumbnailUrl: '', contentType: 'vod' };
+
+    try {
+      const nicknameEl = document.querySelector('.ictFunc.nickname')
+        || document.querySelector('.nickname')
+        || document.querySelector('.author');
+      if (nicknameEl?.textContent?.trim()) {
+        info.name = nicknameEl.textContent.trim();
+      }
+
+      info.title = document.querySelector('meta[property="og:title"]')?.content?.trim() || '';
+      info.thumbnailUrl = document.querySelector('meta[property="og:image"]')?.content?.trim() || '';
+
+      if (!info.title) {
+        const titleSelectors = [
+          '#player_area .title',
+          '.player_wrap .title',
+          '.vod_title',
+          '.title',
+        ];
+        for (const sel of titleSelectors) {
+          const el = document.querySelector(sel);
+          const text = el?.textContent?.trim();
+          if (text) {
+            info.title = text;
+            break;
+          }
+        }
+      }
+
+      if (!info.avatarUrl) {
+        const avatar = nicknameEl?.closest('.column')?.querySelector('img')
+          || document.querySelector('.thumb img[alt="프로필이미지"]')
+          || document.querySelector('.thumb img');
+        if (avatar?.src) {
+          info.avatarUrl = avatar.src;
+        }
+      }
+
+      if (!info.name) {
+        const authorMatch = document.title.match(/^(.+?)\s*\|\s*SOOP VOD/);
+        if (authorMatch) {
+          info.name = authorMatch[1].trim();
+        }
+      }
+    } catch (error) {
+      console.warn('[StreamRadio] 숲 VOD 정보 추출 실패:', error);
+    }
+
+    return info;
+  }
+
+  getStatsSnapshot() {
+    const injectedState = SoopAdapter.getInjectedPlayerState() || {};
+    const playerController = window.vodCore?.playerController;
+    const media = playerController?._media instanceof HTMLMediaElement
+      ? playerController._media
+      : this.findVideoElement();
+    const currentSeconds = this._getVodCurrentTimeSeconds(playerController, media);
+    const totalSeconds = this._getVodTotalDurationSeconds(playerController, media);
+    const hasDuration = Number.isFinite(totalSeconds) && totalSeconds > 0;
+    const remainingSeconds = hasDuration ? Math.max(0, totalSeconds - currentSeconds) : null;
+
+    return {
+      primaryIcon: '▶',
+      primaryText: hasDuration
+        ? `${this._formatDuration(currentSeconds)} / ${this._formatDuration(totalSeconds)}`
+        : `${this._formatDuration(currentSeconds)} / --:--`,
+      secondaryIcon: '⌛',
+      secondaryText: hasDuration
+        ? `남은 ${this._formatDuration(remainingSeconds)}`
+        : '길이 확인 중',
+      stateText: this._getVodPlaybackState(injectedState, playerController, media, hasDuration),
+      stateTone: 'vod',
+      mediaCurrentSeconds: currentSeconds,
+      mediaTotalSeconds: hasDuration ? totalSeconds : 0,
+      mediaCurrentText: this._formatDuration(currentSeconds),
+      mediaTotalText: hasDuration ? this._formatDuration(totalSeconds) : '--:--',
+      progressRatio: hasDuration && totalSeconds > 0 ? currentSeconds / totalSeconds : null,
+      thumbnailUrl: document.querySelector('meta[property="og:image"]')?.content?.trim() || '',
+    };
+  }
+
+  injectToggleButton(onToggle) {
+    if (!this.isLivePage()) return;
+
+    document.querySelector('.srm-vod-toggle-item')?.remove();
+    document.querySelector('.srm-toggle-btn')?.remove();
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'srm-toggle-btn';
+    btn.innerHTML = `
+      🎧
+      <div class="srm-tooltip">라디오 모드 (Alt+R)</div>
+    `;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      onToggle();
+    });
+
+    if (this._attachToggleButtonToViewControls(btn)) {
+      return;
+    }
+
+    const container = this.getPlayerContainer();
+    if (container) {
+      if (!container.style.position) {
+        container.style.position = 'relative';
+      }
+      btn.style.cssText = [
+        'position:absolute',
+        'top:76px',
+        'right:12px',
+        'z-index:10001',
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+        'width:42px',
+        'height:42px',
+        'padding:0',
+        'background:rgba(10,10,12,0.76)',
+        'border:1px solid rgba(255,255,255,0.22)',
+        'border-radius:14px',
+        'color:#fff',
+        'font-size:18px',
+        'cursor:pointer',
+        'box-shadow:0 8px 24px rgba(0,0,0,0.28)',
+      ].join(';');
+      container.appendChild(btn);
+    }
+  }
+
+  _attachToggleButtonToViewControls(btn) {
+    const viewCtrl = document.querySelector('#player .view_ctrl');
+    const listItem = document.querySelector('#player .btn_list');
+    if (!(viewCtrl instanceof HTMLElement) || !(listItem instanceof HTMLElement) || listItem.parentElement !== viewCtrl) {
+      return false;
+    }
+
+    const item = document.createElement('li');
+    item.className = 'srm-vod-toggle-item';
+    item.style.cssText = [
+      'display:flex',
+      'align-items:center',
+      'justify-content:center',
+      'width:44px',
+      'height:44px',
+      'list-style:none',
+      'margin-top:12px',
+      'position:relative',
+      'overflow:visible',
+      'z-index:10001',
+    ].join(';');
+    item.style.setProperty('transform', 'none', 'important');
+    item.style.setProperty('left', '0', 'important');
+    item.style.setProperty('right', '0', 'important');
+
+    btn.classList.add('srm-toggle-btn-vod');
+    btn.style.cssText = [
+      'display:flex',
+      'align-items:center',
+      'justify-content:center',
+      'width:44px',
+      'height:44px',
+      'padding:0',
+      'background:rgba(10,10,12,0.78)',
+      'border:1px solid rgba(255,255,255,0.22)',
+      'border-radius:14px',
+      'color:#fff',
+      'font-size:18px',
+      'cursor:pointer',
+      'box-shadow:0 10px 24px rgba(0,0,0,0.3)',
+    ].join(';');
+
+    item.appendChild(btn);
+
+    if (listItem.nextSibling) {
+      viewCtrl.insertBefore(item, listItem.nextSibling);
+    } else {
+      viewCtrl.appendChild(item);
+    }
+
+    return true;
+  }
+
+  _scoreVideoElement(video) {
+    if (!(video instanceof HTMLVideoElement) || !video.isConnected) {
+      return Number.NEGATIVE_INFINITY;
+    }
+
+    const style = window.getComputedStyle(video);
+    const rect = video.getBoundingClientRect();
+    const area = rect.width * rect.height;
+    const currentSrc = video.currentSrc || video.src || '';
+
+    if (style.display === 'none' || style.visibility === 'hidden' || video.hidden) {
+      return Number.NEGATIVE_INFINITY;
+    }
+
+    let score = 0;
+    if (area > 0) score += Math.min(area / 1000, 2000);
+    if (currentSrc) score += 140;
+    if (video.id === 'video') score += 420;
+    if (video.id === 'adVideo') score -= 320;
+    if (currentSrc.startsWith('data:')) score -= 260;
+    if (video.closest('#player')) score += 120;
+    if (video.closest('#videoLayer')) score += 80;
+    if (!video.paused) score += 60;
+    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) score += 40;
+
+    return score;
+  }
+
+  _getVodCurrentTimeSeconds(playerController, media) {
+    const injectedState = SoopAdapter.getInjectedPlayerState() || {};
+    const candidates = [
+      injectedState.vodCurrentTime,
+      media instanceof HTMLMediaElement ? media.currentTime : null,
+      playerController?._playingTime,
+      playerController?._vodPlayingTime,
+      playerController?._seekTime,
+      playerController?.currentTime,
+      playerController?.playTime,
+    ];
+
+    for (const value of candidates) {
+      if (Number.isFinite(value) && value >= 0) {
+        return Math.floor(value);
+      }
+    }
+
+    return 0;
+  }
+
+  _getVodTotalDurationSeconds(playerController, media) {
+    const injectedState = SoopAdapter.getInjectedPlayerState() || {};
+    const playIdx = typeof playerController?._playIdx === 'number'
+      ? playerController._playIdx
+      : typeof playerController?.playIdx === 'number'
+        ? playerController.playIdx
+        : 0;
+    const fileItem = playerController?._fileItems?.[playIdx]
+      || playerController?._fileItems?.[0]
+      || playerController?.fileItems?.[playIdx]
+      || playerController?.fileItems?.[0]
+      || null;
+
+    const candidates = [
+      injectedState.vodDuration,
+      media instanceof HTMLMediaElement ? media.duration : null,
+      fileItem?.duration,
+      window.vodCore?.config?.totalFileDuration,
+      playerController?.duration,
+      playerController?.totalTime,
+    ];
+
+    for (const value of candidates) {
+      if (Number.isFinite(value) && value > 0) {
+        return Math.floor(value);
+      }
+    }
+
+    return 0;
+  }
+
+  _getVodPlaybackState(injectedState, playerController, media, hasDuration) {
+    if (injectedState.vodSeeking || playerController?._isSeeking) {
+      return '탐색중';
+    }
+
+    const ended = injectedState.vodEnded === true || media?.ended === true;
+    const paused = typeof injectedState.vodPaused === 'boolean'
+      ? injectedState.vodPaused
+      : media instanceof HTMLMediaElement
+        ? media.paused
+        : true;
+    const readyState = Number.isFinite(injectedState.vodReadyState)
+      ? injectedState.vodReadyState
+      : media instanceof HTMLMediaElement
+        ? media.readyState
+        : 0;
+    const mediaDuration = media instanceof HTMLMediaElement && Number.isFinite(media.duration) ? media.duration : 0;
+    const mediaCurrentTime = media instanceof HTMLMediaElement && Number.isFinite(media.currentTime) ? media.currentTime : 0;
+
+    if (ended) {
+      return '시청 완료';
+    }
+
+    if (media instanceof HTMLMediaElement) {
+      if (hasDuration && mediaCurrentTime >= mediaDuration && mediaDuration > 0) {
+        return '시청 완료';
+      }
+
+      if (!paused) {
+        if (readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+          return '버퍼링';
+        }
+        return '재생중';
+      }
+
+      if (readyState >= HTMLMediaElement.HAVE_METADATA || mediaCurrentTime > 0) {
+        return '일시정지';
+      }
+    }
+
+    if (!paused) {
+      return readyState < HTMLMediaElement.HAVE_FUTURE_DATA ? '버퍼링' : '재생중';
+    }
+
+    if (hasDuration || this._getVodCurrentTimeSeconds(playerController, media) > 0) {
+      return '일시정지';
+    }
+
+    return '재생 준비';
+  }
+
+  _formatDuration(totalSeconds) {
+    const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+}
+
 // 어댑터 등록
 (() => {
   if (!location.hostname.includes('sooplive.co.kr') && !location.hostname.includes('sooplive.com')) return;
@@ -337,6 +764,13 @@ class SoopAdapter {
     mainMediaSrc: null,
     broadNo: null,
     quality: null,
+    playerMode: null,
+    vodCurrentTime: null,
+    vodDuration: null,
+    vodPaused: null,
+    vodEnded: null,
+    vodReadyState: null,
+    vodSeeking: null,
   };
 
   let adapter = null;
@@ -353,10 +787,15 @@ class SoopAdapter {
   async function syncAdapterState(options = {}) {
     const { urlChanged = false } = options;
     const { enableSoop = true } = await chrome.storage.local.get(['enableSoop']);
-    const nextAdapter = adapter || new SoopAdapter();
-    const isLivePage = nextAdapter.isLivePage();
+    const adapterCtor = SoopAdapter.isLivePageUrl(location.href)
+      ? SoopAdapter
+      : SoopVodAdapter.isVodPageUrl(location.href)
+        ? SoopVodAdapter
+        : null;
+    const nextAdapter = adapterCtor ? (adapter instanceof adapterCtor ? adapter : new adapterCtor()) : null;
+    const isSupportedPage = nextAdapter?.isLivePage?.() || false;
 
-    if (enableSoop && isLivePage) {
+    if (enableSoop && isSupportedPage && nextAdapter) {
       adapter = nextAdapter;
 
       if (!urlChanged || !window.__radioModeCore?.active) {

@@ -63,15 +63,75 @@
     return getLivePlayerBridge() || getVodPlayerBridge();
   }
 
+  function getVodPlaybackTimeSeconds(playerController, media) {
+    const candidates = [
+      media instanceof HTMLMediaElement ? media.currentTime : null,
+      playerController?._playingTime,
+      playerController?._vodPlayingTime,
+      playerController?._seekTime,
+      playerController?.currentTime,
+      playerController?.playTime,
+    ];
+
+    for (const value of candidates) {
+      if (Number.isFinite(value) && value >= 0) {
+        return Math.floor(value);
+      }
+    }
+
+    return 0;
+  }
+
+  function getVodTotalDurationSeconds(playerController, media) {
+    const playIdx = typeof playerController?._playIdx === 'number'
+      ? playerController._playIdx
+      : typeof playerController?.playIdx === 'number'
+        ? playerController.playIdx
+        : 0;
+    const fileItem = playerController?._fileItems?.[playIdx]
+      || playerController?._fileItems?.[0]
+      || playerController?.fileItems?.[playIdx]
+      || playerController?.fileItems?.[0]
+      || null;
+
+    const candidates = [
+      media instanceof HTMLMediaElement ? media.duration : null,
+      fileItem?.duration,
+      window.vodCore?.config?.totalFileDuration,
+      playerController?.duration,
+      playerController?.totalTime,
+    ];
+
+    for (const value of candidates) {
+      if (Number.isFinite(value) && value > 0) {
+        return Math.floor(value);
+      }
+    }
+
+    return 0;
+  }
+
   function emitPlayerState(force = false) {
     const livePlayer = window.livePlayer;
-    const mainMedia = livePlayer?.mainMedia;
+    const liveMainMedia = livePlayer?.mainMedia;
+    const vodPlayerController = window.vodCore?.playerController;
+    const vodMedia = vodPlayerController?._media;
+    const mainMedia = liveMainMedia instanceof HTMLVideoElement ? liveMainMedia : (
+      vodMedia instanceof HTMLVideoElement ? vodMedia : null
+    );
     const snapshot = {
       site: 'soop',
       mainMediaId: mainMedia instanceof HTMLVideoElement ? (mainMedia.id || null) : null,
       mainMediaSrc: mainMedia instanceof HTMLVideoElement ? (mainMedia.currentSrc || mainMedia.src || null) : null,
       broadNo: String(window.requestBroadNo || window.nBroadNo || ''),
       quality: localStorage.getItem('quality') || null,
+      playerMode: livePlayer ? 'live' : (vodPlayerController ? 'vod' : null),
+      vodCurrentTime: vodPlayerController ? getVodPlaybackTimeSeconds(vodPlayerController, vodMedia) : null,
+      vodDuration: vodPlayerController ? getVodTotalDurationSeconds(vodPlayerController, vodMedia) : null,
+      vodPaused: vodMedia instanceof HTMLMediaElement ? vodMedia.paused : null,
+      vodEnded: vodMedia instanceof HTMLMediaElement ? vodMedia.ended : null,
+      vodReadyState: vodMedia instanceof HTMLMediaElement ? vodMedia.readyState : null,
+      vodSeeking: Boolean(vodPlayerController?._isSeeking),
     };
 
     const signature = JSON.stringify(snapshot);
@@ -302,6 +362,26 @@
     return currentRank !== null && safeRank !== null && currentRank <= safeRank;
   }
 
+  function getSafeBufferedMs(streamer, media) {
+    try {
+      const bufferedMs = streamer?.getMediaBufferedMilliSeconds?.();
+      if (Number.isFinite(bufferedMs) && bufferedMs >= 0) {
+        return bufferedMs;
+      }
+    } catch (_) {}
+
+    try {
+      if (media instanceof HTMLMediaElement && media.buffered?.length) {
+        const rangeIndex = media.buffered.length - 1;
+        const bufferedEnd = media.buffered.end(rangeIndex);
+        const currentTime = Number.isFinite(media.currentTime) ? media.currentTime : 0;
+        return Math.max(0, Math.round((bufferedEnd - currentTime) * 1000));
+      }
+    } catch (_) {}
+
+    return 0;
+  }
+
   function clearLiveQualityMonitor() {
     if (liveQualityMonitorInterval) {
       clearInterval(liveQualityMonitorInterval);
@@ -389,7 +469,7 @@
 
       bindLiveQualityMonitorMedia(media, liveQualityMonitorState, taskToken);
 
-      const bufferedMs = streamer?.getMediaBufferedMilliSeconds?.() ?? 0;
+      const bufferedMs = getSafeBufferedMs(streamer, media);
       const isBuffering = Boolean(streamer?.isBuffer) || streamer?.bBufferOK === false || bufferedMs < 1200;
 
       if (liveQualityMonitorState.currentQuality === LIVE_EXTRA_SAVER_QUALITY) {
@@ -443,9 +523,118 @@
     }, 250);
   }
 
+  function controlVodPlayback(action, seconds) {
+    const playerController = window.vodCore?.playerController;
+    const media = playerController?._media instanceof HTMLMediaElement
+      ? playerController._media
+      : document.querySelector('#video');
+
+    if (!(media instanceof HTMLMediaElement)) {
+      return false;
+    }
+
+    if (action === 'toggle-play') {
+      try {
+        if (media.paused || media.ended) {
+          if (typeof playerController?.playMedia === 'function') {
+            playerController.playMedia();
+          } else if (typeof playerController?.directPlayMedia === 'function') {
+            playerController.directPlayMedia();
+          } else {
+            const playResult = media.play?.();
+            if (playResult?.catch) {
+              playResult.catch(() => {});
+            }
+          }
+        } else {
+          if (typeof playerController?.pauseMedia === 'function') {
+            playerController.pauseMedia();
+          } else {
+            media.pause?.();
+          }
+        }
+        setTimeout(() => emitPlayerState(true), 0);
+        setTimeout(() => emitPlayerState(true), 80);
+        return {
+          ok: true,
+          paused: Boolean(media.paused),
+          currentTime: Number.isFinite(media.currentTime) ? media.currentTime : 0,
+        };
+      } catch (_) {
+        return { ok: false };
+      }
+    }
+
+    if (action !== 'seek-vod') {
+      return { ok: false };
+    }
+
+    const targetSeconds = Math.max(0, Number(seconds) || 0);
+    let didSeek = false;
+
+    try {
+      if (typeof media.fastSeek === 'function') {
+        media.fastSeek(targetSeconds);
+      } else {
+        media.currentTime = targetSeconds;
+      }
+      didSeek = true;
+    } catch (_) {
+      try {
+        media.currentTime = targetSeconds;
+        didSeek = true;
+      } catch (_) {}
+    }
+
+    const fallbackMethods = ['setMediaCurrentTime', 'seekMedia', 'setSeekTime'];
+    for (const method of fallbackMethods) {
+      if (typeof playerController?.[method] !== 'function') {
+        continue;
+      }
+
+      try {
+        playerController[method](targetSeconds);
+        didSeek = true;
+        break;
+      } catch (_) {}
+    }
+
+    if (playerController && didSeek) {
+      for (const key of ['_seekTime', '_seekingTime', '_playingTime', '_vodPlayingTime']) {
+        if (typeof playerController[key] === 'number') {
+          playerController[key] = targetSeconds;
+        }
+      }
+    }
+
+    if (didSeek) {
+      setTimeout(() => emitPlayerState(true), 0);
+      setTimeout(() => emitPlayerState(true), 80);
+    }
+
+    return {
+      ok: didSeek,
+      paused: Boolean(media.paused),
+      currentTime: Number.isFinite(media.currentTime) ? media.currentTime : targetSeconds,
+    };
+  }
+
   // ── 메시지 리스너 ──
   window.addEventListener('message', function(e) {
-    if (e.source !== window || e.data?.type !== 'srm-bandwidth') return;
+    if (e.source !== window) return;
+
+    if (e.data?.type === 'srm-player-control') {
+      const result = controlVodPlayback(e.data.action, e.data.seconds);
+      window.postMessage({
+        type: 'srm-player-control-result',
+        requestId: e.data.requestId || null,
+        action: e.data.action || null,
+        ...(result || { ok: false }),
+      }, '*');
+      return;
+    }
+
+    if (e.data?.type !== 'srm-bandwidth') return;
 
     if (e.data.action === 'enable') {
       cancelPendingQualityTasks();

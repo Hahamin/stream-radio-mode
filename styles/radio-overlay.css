@@ -42,12 +42,38 @@
 /* 라디오 콘텐츠 래퍼 */
 .srm-content {
   flex: 1;
+  width: min(92vw, 420px);
+  max-width: 420px;
+  height: 100%;
+  padding: 28px 0 22px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   z-index: 1;
   min-width: 0;
+  overflow-y: auto;
+  overflow-x: visible;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(126, 168, 247, 0.42) transparent;
+}
+
+.srm-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.srm-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.srm-content::-webkit-scrollbar-thumb {
+  background: rgba(126, 168, 247, 0.34);
+  border-radius: 999px;
+}
+
+.srm-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(126, 168, 247, 0.48);
 }
 
 /* 배경 애니메이션 - 음파 효과 */
@@ -76,10 +102,15 @@
   50% { transform: scale(1.2); opacity: 1; }
 }
 
+.srm-overlay-vod::before,
+.srm-overlay-vod::after {
+  display: none;
+}
+
 /* 라디오 아이콘 */
 .srm-icon {
   font-size: 48px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   animation: srm-bounce 2s ease-in-out infinite;
 }
 
@@ -95,13 +126,13 @@
   letter-spacing: 3px;
   text-transform: uppercase;
   color: rgba(100, 140, 255, 0.9);
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 /* 스트리머 정보 */
 .srm-streamer-info {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 16px;
   z-index: 1;
 }
 
@@ -164,12 +195,389 @@
   font-weight: 600;
 }
 
+.srm-stat-vod {
+  color: #8ab4ff;
+  font-weight: 600;
+}
+
+.srm-media-preview {
+  display: none;
+  width: min(42vw, 360px);
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(9, 14, 26, 0.82), rgba(12, 18, 34, 0.66));
+  border: 1px solid rgba(100, 140, 255, 0.16);
+  box-shadow: 0 18px 40px rgba(4, 10, 24, 0.22);
+  backdrop-filter: blur(14px);
+  z-index: 1;
+}
+
+.srm-overlay-vod {
+  background:
+    linear-gradient(180deg, rgba(12, 20, 40, 0.96), rgba(21, 35, 66, 0.98)),
+    radial-gradient(circle at top, rgba(82, 121, 226, 0.18), transparent 44%);
+  justify-content: flex-start;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(126, 168, 247, 0.42) transparent;
+}
+
+.srm-overlay-vod::-webkit-scrollbar {
+  width: 8px;
+}
+
+.srm-overlay-vod::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.srm-overlay-vod::-webkit-scrollbar-thumb {
+  background: rgba(126, 168, 247, 0.34);
+  border-radius: 999px;
+}
+
+.srm-overlay-vod::-webkit-scrollbar-thumb:hover {
+  background: rgba(126, 168, 247, 0.48);
+}
+
+.srm-overlay-vod .srm-content {
+  width: min(92vw, 430px);
+  max-width: 430px;
+  min-height: 100vh;
+  height: auto;
+  margin: 0 auto;
+  padding-top: 22px;
+  padding-bottom: 36px;
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.srm-overlay-vod .srm-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+  animation: none;
+  opacity: 0.82;
+}
+
+.srm-overlay-vod .srm-label {
+  margin-bottom: 14px;
+  letter-spacing: 2px;
+  font-size: 12px;
+  color: rgba(157, 187, 255, 0.88);
+}
+
+.srm-overlay-vod .srm-streamer-info {
+  margin-bottom: 12px;
+}
+
+.srm-overlay-vod .srm-stream-title {
+  max-width: 360px;
+}
+
+.srm-overlay-vod .srm-media-preview {
+  width: min(84vw, 382px);
+  margin-bottom: 14px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.srm-overlay-vod .srm-media-preview-chip {
+  background: rgba(8, 12, 24, 0.78);
+}
+
+.srm-overlay-vod .srm-media-preview-label {
+  color: rgba(219, 231, 255, 0.68);
+}
+
+.srm-overlay-vod .srm-media-preview-frame,
+.srm-overlay-vod .srm-media-preview-overlay {
+  display: none;
+}
+
+.srm-overlay-vod .srm-media-preview-meta {
+  margin-top: 0;
+}
+
+.srm-overlay-vod .srm-media-preview-meta-vod {
+  gap: 10px;
+}
+
+.srm-overlay-vod .srm-media-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.srm-overlay-vod .srm-media-preview-label-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.srm-overlay-vod .srm-media-preview-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.srm-overlay-vod .srm-media-preview-time {
+  font-size: 20px;
+}
+
+.srm-overlay-vod .srm-media-preview-state {
+  margin-left: 0;
+  flex: 0 0 auto;
+}
+
+.srm-overlay-vod .srm-media-preview-progress {
+  margin-top: 0;
+  height: 8px;
+}
+
+.srm-overlay-vod .srm-actions {
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.srm-overlay-vod .srm-visualizer {
+  display: none;
+}
+
+.srm-overlay-vod .srm-volume-control {
+  margin-bottom: 12px;
+}
+
+.srm-overlay-vod .srm-audio-tools {
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.srm-overlay-vod .srm-audio-tool-hint {
+  margin-bottom: 12px;
+}
+
+.srm-overlay-vod .srm-btn-group {
+  padding-bottom: 10px;
+}
+
+.srm-media-preview.srm-visible {
+  display: block;
+}
+
+.srm-media-preview-meta-vod {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.srm-media-preview-header {
+  display: none;
+}
+
+.srm-media-preview-label-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.srm-media-preview-time-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.srm-media-preview-frame {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top, rgba(100, 140, 255, 0.24), transparent 56%),
+    linear-gradient(135deg, rgba(10, 18, 32, 0.96), rgba(14, 20, 36, 0.82));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.srm-media-preview-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.srm-media-preview-image.srm-ready {
+  opacity: 1;
+}
+
+.srm-media-preview-image.srm-media-preview-image-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.srm-media-preview-overlay {
+  position: absolute;
+  inset: auto 10px 10px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.srm-media-preview-chip,
+.srm-media-preview-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+  background: rgba(5, 10, 22, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #eef4ff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.srm-media-preview-state {
+  text-transform: none;
+  margin-left: auto;
+}
+
+.srm-media-preview-meta {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.srm-media-preview-label {
+  font-size: 12px;
+  color: rgba(226, 236, 255, 0.58);
+  letter-spacing: 0.04em;
+}
+
+.srm-media-preview-time {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: #f8fbff;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.srm-media-preview-sep {
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 17px;
+}
+
+.srm-media-preview-progress {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  margin-top: 10px;
+  overflow: visible;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+
+.srm-media-preview-progress-bar {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #5aa0ff, #8ab4ff);
+  box-shadow: 0 0 18px rgba(90, 160, 255, 0.28);
+  transition: width 0.25s ease;
+}
+
+.srm-media-preview-hover {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 14px);
+  display: none;
+  width: 148px;
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(6, 10, 20, 0.88);
+  border: 1px solid rgba(100, 140, 255, 0.18);
+  box-shadow: 0 18px 36px rgba(4, 10, 24, 0.3);
+  transform: translateX(-50%);
+  backdrop-filter: blur(14px);
+  z-index: 2;
+}
+
+.srm-media-preview-hover.srm-visible {
+  display: block;
+}
+
+.srm-media-preview-hover::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  border-right: 1px solid rgba(100, 140, 255, 0.18);
+  border-bottom: 1px solid rgba(100, 140, 255, 0.18);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.srm-media-preview-hover-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  object-fit: cover;
+  border-radius: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  background:
+    radial-gradient(circle at top, rgba(100, 140, 255, 0.22), transparent 56%),
+    linear-gradient(135deg, rgba(10, 18, 32, 0.96), rgba(14, 20, 36, 0.82));
+}
+
+.srm-media-preview-hover-image.srm-ready {
+  opacity: 1;
+}
+
+.srm-media-preview-hover-time {
+  margin-top: 8px;
+  color: #f8fbff;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 /* 액션 버튼 바 (즐찾, 좋아요, 채팅) */
 .srm-actions {
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
   z-index: 1;
 }
 
@@ -187,6 +595,18 @@
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.srm-action-btn.srm-playback-btn {
+  display: none;
+  min-width: 112px;
+  background: rgba(100, 140, 255, 0.14);
+  border-color: rgba(100, 140, 255, 0.24);
+  color: #dbeafe;
+}
+
+.srm-action-btn.srm-playback-btn.srm-visible {
+  display: flex;
 }
 
 .srm-action-btn:hover {
@@ -219,7 +639,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
   z-index: 1;
 }
 
@@ -272,7 +692,7 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   z-index: 1;
 }
 
@@ -325,7 +745,7 @@
 }
 
 .srm-audio-tool-hint {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   font-size: 12px;
   color: rgba(235, 244, 255, 0.62);
   letter-spacing: 0.02em;
@@ -333,6 +753,15 @@
 }
 
 @media (max-width: 640px) {
+  .srm-media-preview {
+    width: min(90vw, 340px);
+    border-radius: 20px;
+  }
+
+  .srm-media-preview-time {
+    font-size: 18px;
+  }
+
   .srm-audio-tools {
     width: min(92vw, 360px);
   }
@@ -350,6 +779,109 @@
   .srm-switch-btn {
     width: 100%;
     justify-content: center;
+  }
+}
+
+@media (max-height: 920px) {
+  .srm-content {
+    padding-top: 20px;
+    padding-bottom: 18px;
+  }
+
+  .srm-icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+  }
+
+  .srm-label {
+    margin-bottom: 14px;
+  }
+
+  .srm-streamer-avatar {
+    width: 68px;
+    height: 68px;
+    margin-bottom: 10px;
+  }
+
+  .srm-streamer-name {
+    font-size: 18px;
+  }
+
+  .srm-stream-title {
+    font-size: 13px;
+  }
+
+  .srm-media-preview {
+    width: min(40vw, 332px);
+    margin-bottom: 14px;
+    padding: 10px;
+  }
+
+  .srm-media-preview-time {
+    font-size: 19px;
+  }
+
+  .srm-media-preview-hover {
+    width: 136px;
+  }
+
+  .srm-actions {
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .srm-action-btn {
+    min-width: 84px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .srm-action-btn.srm-playback-btn {
+    min-width: 104px;
+  }
+
+  .srm-visualizer {
+    display: none;
+  }
+
+  .srm-volume-control {
+    margin-bottom: 12px;
+  }
+
+  .srm-audio-tools {
+    gap: 8px;
+  }
+
+  .srm-audio-tool {
+    min-width: 138px;
+    padding: 8px 12px;
+  }
+
+  .srm-audio-tool-hint {
+    margin-bottom: 12px;
+  }
+
+  .srm-btn-group {
+    gap: 8px;
+  }
+
+  .srm-switch-btn {
+    padding: 9px 18px;
+    font-size: 13px;
+  }
+
+  .srm-overlay-vod .srm-content {
+    min-height: 100vh;
+    padding-top: 18px;
+    padding-bottom: 28px;
+  }
+
+  .srm-overlay-vod .srm-media-preview {
+    width: min(82vw, 348px);
+  }
+
+  .srm-overlay-vod .srm-media-preview-time {
+    font-size: 18px;
   }
 }
 
@@ -383,6 +915,8 @@
 /* 버튼 그룹 */
 .srm-btn-group {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
   z-index: 1;
 }
@@ -405,7 +939,7 @@
   align-items: flex-end;
   gap: 3px;
   height: 40px;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
   z-index: 1;
 }
 
@@ -456,13 +990,44 @@
   background: rgba(0, 0, 0, 0.85);
   color: #fff;
   font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
   border-radius: 4px;
   white-space: nowrap;
   margin-bottom: 6px;
+  width: max-content !important;
+  min-width: max-content !important;
+  max-width: none !important;
+  height: auto !important;
+  overflow: visible !important;
+  text-indent: 0 !important;
+  letter-spacing: 0 !important;
+  background-image: none !important;
+  pointer-events: none;
+  z-index: 10002;
 }
 
 .srm-toggle-btn:hover .srm-tooltip {
   display: block;
+}
+
+.srm-vod-toggle-item {
+  overflow: visible;
+}
+
+.srm-toggle-btn.srm-toggle-btn-vod {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+}
+
+.srm-toggle-btn.srm-toggle-btn-vod .srm-tooltip {
+  top: 50%;
+  right: calc(100% + 10px);
+  bottom: auto;
+  left: auto;
+  transform: translateY(-50%);
+  margin-bottom: 0;
 }
 
 /* ── 채팅 내장 모드 ── */
@@ -472,7 +1037,7 @@
   position: fixed !important;
   top: 12px !important;
   right: 12px !important;
-  width: 360px !important;
+  width: 336px !important;
   height: calc(100vh - 24px) !important;
   --srm-panel-header-height: 56px;
   background: var(--srm-bg) !important;
@@ -513,8 +1078,8 @@
 .srm-chat-embedded .chat_layer {
   position: fixed !important;
   top: 12px !important;
-  right: 384px !important;
-  width: 320px !important;
+  right: 356px !important;
+  width: 296px !important;
   height: calc(100vh - 24px) !important;
   z-index: 10010 !important;
   background: var(--srm-bg, #16213e) !important;
@@ -607,7 +1172,7 @@
   position: fixed !important;
   top: 16px !important;
   left: 16px !important;
-  width: clamp(320px, 34vw, 460px) !important;
+  width: clamp(304px, 31vw, 420px) !important;
   max-width: calc(100vw - 32px) !important;
   height: calc(100vh - 32px) !important;
   background: var(--srm-bg) !important;
@@ -1501,7 +2066,7 @@
   position: fixed !important;
   top: 16px !important;
   left: 16px !important;
-  width: clamp(320px, 34vw, 460px) !important;
+  width: clamp(304px, 31vw, 420px) !important;
   max-width: calc(100vw - 32px) !important;
   height: calc(100vh - 32px) !important;
   background: var(--srm-bg) !important;
