@@ -77,6 +77,9 @@ Uses Web Audio API filters only while radio mode is active, trimming muddy lows 
 | `Alt + R` | Toggle Radio Mode |
 | `Alt + B` | Toggle Stealth Mode |
 | `Alt + M` | Minimize Window |
+| `Alt + ↑` | Volume up by 5% |
+| `Alt + ↓` | Volume down by 5% |
+| `Alt + 0` | Mute / restore previous volume |
 
 ---
 
