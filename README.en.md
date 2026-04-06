@@ -40,11 +40,12 @@ A Chrome extension that adds radio mode to [SOOP](https://www.sooplive.com/) (Ko
 
 ### 🎧 Radio Mode — `Alt + R`
 
-Turns off video, keeps audio. Saves **~90% bandwidth** automatically.
+Turns off video, keeps audio, and now adds a **speech-focused EQ** you can toggle inside radio mode.
 
 - Streamer profile, name, stream title
 - Viewer count, stream duration (live sync)
 - Volume control, favorite, like buttons
+- Speech EQ toggle + 3 presets (`Clarity`, `Bass Cut`, `Night`)
 - Chat panel + list panel (dark theme)
 
 ### 🕶 Stealth Mode — `Alt + B`
@@ -53,11 +54,19 @@ Disguises the tab as **"Google Docs"** — changes title, favicon, and auto-swit
 
 ### 📉 Auto Bandwidth Saving
 
-Radio mode automatically switches to the lowest quality stream via SOOP's internal API.
+Radio mode automatically shifts to a **stability-first low quality** profile, then only drops further when the buffer looks healthy.
 
 ```
-1080p (~5-8 Mbps)  →  LOW (~0.3 Mbps)  📉 90% saved
+1080p (~5-8 Mbps)  →  adaptive 540p/360p  📉 major bandwidth savings
 ```
+
+### 🎙 Speech EQ (Radio Mode Only)
+
+Uses Web Audio API filters only while radio mode is active, trimming muddy lows and lightly lifting the voice range.
+
+- `Clarity`: balanced default preset
+- `Bass Cut`: stronger low-end cleanup
+- `Night`: softer highs for longer listening sessions
 
 ---
 
@@ -90,6 +99,7 @@ Radio mode automatically switches to the lowest quality stream via SOOP's intern
 - Manual smoke 4: stealth mode and minimize mode should still toggle off correctly after the extension service worker restarts.
 - Manual smoke 5: with multiple browser windows open, stealth mode tab switching and minimize mode should affect only the window that sent the request.
 - Manual smoke 6: rapid radio mode toggles should leave stream quality matching the final user action.
+- Manual smoke 7: while radio mode is on, Speech EQ toggles and preset cycling should update immediately without interrupting playback.
 
 ---
 
