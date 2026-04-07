@@ -850,8 +850,6 @@ class SoopVodAdapter {
     scheduleSync({ force: true });
   });
 
-  window.__bandwidthSaver?._ensureInjected();
-
   window.setInterval(() => {
     scheduleSync();
   }, 2000);

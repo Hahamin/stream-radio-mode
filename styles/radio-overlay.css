@@ -215,8 +215,8 @@
 
 .srm-overlay-vod {
   background:
-    linear-gradient(180deg, rgba(12, 20, 40, 0.96), rgba(21, 35, 66, 0.98)),
-    radial-gradient(circle at top, rgba(82, 121, 226, 0.18), transparent 44%);
+    radial-gradient(circle at top, rgba(82, 121, 226, 0.18), transparent 44%),
+    linear-gradient(180deg, #0c1428, #152342);
   justify-content: flex-start;
   overflow-y: auto;
   overflow-x: hidden;

@@ -468,6 +468,16 @@ class RadioModeCore {
   }
 
   async _togglePlayback() {
+    if (this._isVodPlayerContext()) {
+      const bridgedState = await this._requestPlayerControl('toggle-play');
+      if (bridgedState?.ok) {
+        return {
+          supported: true,
+          playing: !Boolean(bridgedState.paused),
+        };
+      }
+    }
+
     const video = this._videoRef || this.adapter?.findVideoElement?.();
     if (!(video instanceof HTMLVideoElement)) {
       return { supported: false, playing: false };
@@ -485,6 +495,67 @@ class RadioModeCore {
       supported: true,
       playing: !video.paused && !video.ended,
     };
+  }
+
+  _isVodPlayerContext() {
+    if (window.__srmSoopPageState?.playerMode === 'vod') {
+      return true;
+    }
+
+    try {
+      if (this.adapter?.getStatsSnapshot?.()?.stateTone === 'vod') {
+        return true;
+      }
+    } catch (_) {}
+
+    return location.hostname === 'vod.sooplive.co.kr' || location.hostname === 'vod.sooplive.com';
+  }
+
+  async _requestPlayerControl(action, payload = {}, timeoutMs = 700) {
+    await window.__bandwidthSaver?._ensureInjected?.();
+
+    const requestId = `srm-${action}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    return new Promise((resolve) => {
+      let settled = false;
+      let timeoutId = null;
+
+      const cleanup = () => {
+        window.removeEventListener('message', onMessage);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+      };
+
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(result);
+      };
+
+      const onMessage = (event) => {
+        if (event.source !== window) return;
+        if (event.data?.type !== 'srm-player-control-result') return;
+        if (event.data?.requestId !== requestId || event.data?.action !== action) return;
+        finish(event.data);
+      };
+
+      window.addEventListener('message', onMessage);
+      timeoutId = window.setTimeout(() => finish(null), timeoutMs);
+
+      try {
+        window.postMessage({
+          type: 'srm-player-control',
+          action,
+          requestId,
+          ...payload,
+        }, '*');
+      } catch (_) {
+        finish(null);
+      }
+    });
   }
 
   _getStatePayload() {
@@ -689,13 +760,13 @@ class RadioModeCore {
     const pct = Math.round(vol * 100) + '%';
     const range = document.querySelector('.volume_range');
     const handler = document.querySelector('.volume_handler');
-    const tooltip = handler?.querySelector('.tooltip span');
+    const tooltip = handler?.querySelector('.tooltip span') || document.querySelector('.volume_text');
     if (range) range.style.width = pct;
     if (handler) handler.style.left = pct;
     if (tooltip) tooltip.textContent = pct;
 
     // SOOP 음소거 버튼 동기화
-    const soundBtn = document.querySelector('#btn_sound');
+    const soundBtn = document.querySelector('#btn_sound, .sound');
     if (soundBtn) {
       if (vol === 0) {
         soundBtn.classList.add('mute');
@@ -747,7 +818,7 @@ window.__radioModeCore = new RadioModeCore();
     }
   });
 
-  document.addEventListener('keydown', (e) => {
+  const handleShortcutKeydown = (e) => {
     if (!shortcutsEnabled) return;
     if (!window.__radioModeCore?.isShortcutAvailable()) return;
     if (!e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) return;
@@ -774,5 +845,8 @@ window.__radioModeCore = new RadioModeCore();
       e.preventDefault();
       window.__radioModeCore?._toggleMute();
     }
-  });
+  };
+
+  // VOD 플레이어가 keydown 버블링을 중간에 중단해도 단축키를 먼저 잡을 수 있게 캡처 단계에서 수신한다.
+  window.addEventListener('keydown', handleShortcutKeydown, true);
 })();

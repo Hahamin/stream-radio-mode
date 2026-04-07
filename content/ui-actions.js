@@ -7,6 +7,17 @@ window._srmActions = {
   _actionSyncFrame: 0,
   _pendingActions: new Map(),
   _pendingActionTimers: new Map(),
+  _actionRootSelector: [
+    '#player_info',
+    '.detail_info',
+    '.wrapping_player_bottom',
+    '.player_ctrlBox',
+    '#columnSub',
+    '.column_sub',
+    '.broadcast_information',
+    '.depend_item',
+    '.up_cnt',
+  ].join(', '),
 
   _startActionStateSync(overlay) {
     this._stopActionStateSync();
@@ -161,8 +172,8 @@ window._srmActions = {
   _getActionRoot() {
     const favBtn = this._findFavoriteButton();
     const likeBtn = this._findLikeButton();
-    const buttonRootSelector = '#player_info, .detail_info, .wrapping_player_bottom, .player_ctrlBox';
-    const fallbackSelector = '#player_info, .detail_info, .wrapping_player_bottom, .player_ctrlBox';
+    const buttonRootSelector = this._actionRootSelector;
+    const fallbackSelector = this._actionRootSelector;
 
     return favBtn?.closest(buttonRootSelector)
       || likeBtn?.closest(buttonRootSelector)
