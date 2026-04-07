@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Stream Radio Mode",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "숲(SOOP) 라이브 스트리밍 라디오 모드 — 오디오만 재생하여 시스템 리소스 절약",
   "permissions": ["storage", "activeTab", "tabs"],
   "content_scripts": [
