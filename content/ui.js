@@ -32,6 +32,12 @@ const RadioOverlayUI = {
     this._applySpeechEQState(overlay, state);
   },
 
+  updateSleepMode(state) {
+    const overlay = this._overlayEl;
+    if (!overlay) return;
+    this._applySleepModeState(overlay, state);
+  },
+
   /**
    * 라디오 모드 오버레이 표시
    * @param {HTMLElement} container - 플레이어 컨테이너
@@ -54,6 +60,7 @@ const RadioOverlayUI = {
       info,
       callbacks?.currentVolume ?? 0.5,
       callbacks?.speechEqState,
+      callbacks?.sleepModeState,
     );
     container.appendChild(overlay);
     this._overlayEl = overlay;
@@ -61,6 +68,7 @@ const RadioOverlayUI = {
     this._bindEvents(overlay, callbacks);
     this._bindMediaPreviewEvents(overlay);
     this._applySpeechEQState(overlay, callbacks?.speechEqState);
+    this._applySleepModeState(overlay, callbacks?.sleepModeState);
     this._startStatsSync(overlay);
     window._srmActions?._updateActionCounts(overlay);
     window._srmActions?._updateFavIcon(overlay);
@@ -527,7 +535,7 @@ const RadioOverlayUI = {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   },
 
-  _buildHTML(info, volume, speechEqState = null) {
+  _buildHTML(info, volume, speechEqState = null, sleepModeState = null) {
     const isVod = info?.contentType === 'vod';
     const avatarHTML = info.avatarUrl
       ? `<img class="srm-streamer-avatar" src="${this._escapeAttr(info.avatarUrl)}" alt="">`
@@ -544,6 +552,8 @@ const RadioOverlayUI = {
     const volPercent = Math.round(volume * 100);
     const volIcon = volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊';
     const initialPresetLabel = this._escapeHTML(speechEqState?.label || '선명');
+    const sleepModeEnabled = Boolean(sleepModeState?.enabled);
+    const sleepModeStatus = sleepModeEnabled ? 'ON' : 'OFF';
     const modeLabel = isVod ? 'VOD RADIO MODE' : 'RADIO MODE';
     const modeIcon = isVod ? '🎞' : '🎧';
     const previewChip = isVod ? '다시보기' : 'LIVE';
@@ -644,6 +654,10 @@ const RadioOverlayUI = {
         <button class="srm-audio-tool" data-action="speech-eq-preset" type="button">
           <span>프리셋</span>
           <span class="srm-audio-tool-value" id="srm-speech-eq-preset">${initialPresetLabel}</span>
+        </button>
+        <button class="srm-audio-tool srm-sleep-tool" data-action="sleep-mode-toggle" type="button" aria-pressed="${sleepModeEnabled}" title="방송 또는 다시보기 종료 시 자동 정지">
+          <span>수면모드</span>
+          <span class="srm-audio-tool-value" id="srm-sleep-mode-status">${sleepModeStatus}</span>
         </button>
       </div>
       <div class="srm-audio-tool-hint" id="srm-speech-eq-hint">대사 중심 EQ 꺼짐</div>
@@ -765,7 +779,25 @@ const RadioOverlayUI = {
         if (state) {
           RadioOverlayUI.updateSpeechEQ(state);
         }
-      } catch (_) {}
+      } catch (error) {
+        console.warn('[StreamRadio] 대사 EQ 프리셋 전환 실패', error);
+      }
+    });
+
+    overlay.querySelector('[data-action="sleep-mode-toggle"]')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const btn = overlay.querySelector('[data-action="sleep-mode-toggle"]');
+      if (btn) btn.disabled = true;
+      try {
+        const state = await callbacks?.onSleepModeToggle?.();
+        if (state) {
+          RadioOverlayUI.updateSleepMode(state);
+        }
+      } catch (error) {
+        console.warn('[StreamRadio] 수면모드 토글 실패', error);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     });
 
     overlay.addEventListener('click', (e) => e.stopPropagation());
@@ -830,6 +862,21 @@ const RadioOverlayUI = {
       } else {
         hintEl.textContent = `대사 중심 EQ 준비중 · ${label}`;
       }
+    }
+  },
+
+  _applySleepModeState(overlay, state) {
+    const toggleBtn = overlay.querySelector('[data-action="sleep-mode-toggle"]');
+    const statusEl = overlay.querySelector('#srm-sleep-mode-status');
+    const enabled = Boolean(state?.enabled);
+
+    if (toggleBtn) {
+      toggleBtn.classList.toggle('srm-sleep-tool-active', enabled);
+      toggleBtn.setAttribute('aria-pressed', String(enabled));
+    }
+
+    if (statusEl) {
+      statusEl.textContent = enabled ? 'ON' : 'OFF';
     }
   },
 

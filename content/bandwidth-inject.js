@@ -567,6 +567,25 @@
       return false;
     }
 
+    if (action === 'pause') {
+      try {
+        if (typeof playerController?.pauseMedia === 'function') {
+          playerController.pauseMedia();
+        } else {
+          media.pause?.();
+        }
+        setTimeout(() => emitPlayerState(true), 0);
+        setTimeout(() => emitPlayerState(true), 80);
+        return {
+          ok: true,
+          paused: true,
+          currentTime: Number.isFinite(media.currentTime) ? media.currentTime : 0,
+        };
+      } catch (_) {
+        return { ok: false };
+      }
+    }
+
     if (action === 'toggle-play') {
       try {
         if (media.paused || media.ended) {

@@ -110,6 +110,16 @@ body {
   background: #3b82f6;
 }
 
+.sleep-row {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(20, 184, 166, 0.15) !important;
+}
+
+.sleep-row .toggle input:checked + .toggle-slider {
+  background: #14b8a6;
+}
+
 .setting-label {
   display: flex;
   flex-direction: column;

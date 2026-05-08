@@ -6,6 +6,7 @@ const $ = (sel) => document.querySelector(sel);
 
 const radioToggle = $('#radioToggle');
 const autoRadio = $('#autoRadio');
+const sleepModeToggle = $('#sleepModeToggle');
 const bossToggle = $('#bossToggle');
 const minimizeToggle = $('#minimizeToggle');
 const shortcutsToggle = $('#shortcutsToggle');
@@ -32,10 +33,11 @@ async function getActiveTabContext() {
 
 async function init() {
   const settings = await chrome.storage.local.get([
-    'autoRadio', 'enableSoop', 'shortcutsEnabled'
+    'autoRadio', 'enableSoop', 'shortcutsEnabled', 'sleepModeEnabled'
   ]);
 
   autoRadio.checked = settings.autoRadio || false;
+  sleepModeToggle.checked = Boolean(settings.sleepModeEnabled);
   enableSoop.checked = settings.enableSoop !== false;
   shortcutsToggle.checked = settings.shortcutsEnabled !== false;
   updateShortcutSection();
@@ -179,6 +181,10 @@ minimizeToggle.addEventListener('change', async () => {
 
 autoRadio.addEventListener('change', () => {
   chrome.storage.local.set({ autoRadio: autoRadio.checked });
+});
+
+sleepModeToggle.addEventListener('change', () => {
+  chrome.storage.local.set({ sleepModeEnabled: sleepModeToggle.checked });
 });
 
 enableSoop.addEventListener('change', async () => {

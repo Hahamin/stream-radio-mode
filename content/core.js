@@ -17,6 +17,12 @@ class RadioModeCore {
     this._transition = Promise.resolve();
     this._initialized = false;
     this._autoRadio = false;
+    this._sleepModeEnabled = false;
+    this._sleepOriginMode = null;
+    this._sleepOriginUrl = '';
+    this._sleepMonitorInterval = null;
+    this._sleepPlayerStateHandler = null;
+    this._sleepStopInProgress = false;
     this._lastUrl = location.href;
     this._urlCheckInterval = null;
     this._urlMessageHandler = null;
@@ -100,15 +106,22 @@ class RadioModeCore {
     };
     chrome.runtime.onMessage.addListener(this._messageListener);
 
-    chrome.storage.local.get(['autoRadio'], (result) => {
+    chrome.storage.local.get(['autoRadio', 'sleepModeEnabled'], (result) => {
       this._autoRadio = Boolean(result.autoRadio);
+      this._sleepModeEnabled = Boolean(result.sleepModeEnabled);
       this._autoEnableIfNeeded();
+      this._syncSleepModeMonitor();
     });
 
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName === 'local' && changes.autoRadio) {
         this._autoRadio = Boolean(changes.autoRadio.newValue);
         this._autoEnableIfNeeded();
+      }
+      if (areaName === 'local' && changes.sleepModeEnabled) {
+        this._sleepModeEnabled = Boolean(changes.sleepModeEnabled.newValue);
+        this._syncSleepModeMonitor();
+        RadioOverlayUI.updateSleepMode?.(this._getSleepModeState());
       }
     });
   }
@@ -475,13 +488,19 @@ class RadioModeCore {
         speechEqState,
         onSpeechEqToggle: () => this._toggleSpeechEQ(),
         onSpeechEqPresetCycle: () => this._cycleSpeechEQPreset(),
+        sleepModeState: this._getSleepModeState(),
+        onSleepModeToggle: () => this._toggleSleepMode(),
       });
 
       this.active = true;
+      this._sleepOriginMode = this._isVodPlayerContext() ? 'vod' : 'live';
+      this._sleepOriginUrl = location.href;
+      this._sleepStopInProgress = false;
       this._syncToggleButton();
       this._notifyState();
       this._saveState();
       this._startUrlWatch();
+      this._syncSleepModeMonitor();
     } catch (error) {
       await rollbackPartialEnable();
       throw error;
@@ -489,6 +508,7 @@ class RadioModeCore {
   }
 
   async _disableInternal() {
+    this._stopSleepModeMonitor();
     window.__bandwidthSaver?.disable();
     await this._detachSpeechEQ();
 
@@ -506,6 +526,9 @@ class RadioModeCore {
 
     this.active = false;
     this._videoRef = null;
+    this._sleepOriginMode = null;
+    this._sleepOriginUrl = '';
+    this._sleepStopInProgress = false;
     this._stopUrlWatch();
     this._syncToggleButton();
     this._notifyState();
@@ -554,6 +577,164 @@ class RadioModeCore {
     } catch (_) {}
 
     return location.hostname === 'vod.sooplive.co.kr' || location.hostname === 'vod.sooplive.com';
+  }
+
+  _isVodUrl(rawUrl = location.href) {
+    try {
+      const url = new URL(rawUrl, location.origin);
+      return url.hostname === 'vod.sooplive.co.kr' || url.hostname === 'vod.sooplive.com';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  _syncSleepModeMonitor() {
+    if (this._sleepModeEnabled && this.active) {
+      this._startSleepModeMonitor();
+      return;
+    }
+
+    this._stopSleepModeMonitor();
+  }
+
+  _getSleepModeState() {
+    return {
+      enabled: this._sleepModeEnabled,
+      active: this.active,
+    };
+  }
+
+  async _setSleepModeEnabled(enabled) {
+    const nextEnabled = Boolean(enabled);
+    await new Promise((resolve, reject) => {
+      chrome.storage.local.set({ sleepModeEnabled: nextEnabled }, () => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          reject(new Error(error.message));
+          return;
+        }
+        resolve();
+      });
+    });
+
+    this._sleepModeEnabled = nextEnabled;
+    this._syncSleepModeMonitor();
+    const state = this._getSleepModeState();
+    RadioOverlayUI.updateSleepMode?.(state);
+    return state;
+  }
+
+  _toggleSleepMode() {
+    return this._setSleepModeEnabled(!this._sleepModeEnabled);
+  }
+
+  _startSleepModeMonitor() {
+    if (this._sleepMonitorInterval || this._sleepPlayerStateHandler) {
+      return;
+    }
+
+    this._sleepPlayerStateHandler = (event) => {
+      if (event.source !== window || event.data?.type !== 'srm-player-state') return;
+      window.setTimeout(() => this._checkSleepModeGuard(), 0);
+    };
+    window.addEventListener('message', this._sleepPlayerStateHandler);
+
+    this._sleepMonitorInterval = window.setInterval(() => {
+      this._checkSleepModeGuard();
+    }, 1000);
+
+    window.__bandwidthSaver?._ensureInjected?.();
+    this._checkSleepModeGuard();
+  }
+
+  _stopSleepModeMonitor() {
+    if (this._sleepMonitorInterval) {
+      clearInterval(this._sleepMonitorInterval);
+      this._sleepMonitorInterval = null;
+    }
+
+    if (this._sleepPlayerStateHandler) {
+      window.removeEventListener('message', this._sleepPlayerStateHandler);
+      this._sleepPlayerStateHandler = null;
+    }
+  }
+
+  _getSleepModeStopReason() {
+    if (!this._sleepModeEnabled || !this.active || this._sleepStopInProgress) {
+      return null;
+    }
+
+    const originMode = this._sleepOriginMode || (this._isVodPlayerContext() ? 'vod' : 'live');
+    const state = window.__srmSoopPageState || {};
+    const video = this._getCurrentVideo();
+
+    if (originMode === 'vod') {
+      return state.vodEnded === true || video?.ended === true ? 'vod-ended' : null;
+    }
+
+    if (this._isVodUrl(location.href) || state.playerMode === 'vod' || video?.ended === true) {
+      return 'live-ended';
+    }
+
+    return null;
+  }
+
+  _checkSleepModeGuard() {
+    const reason = this._getSleepModeStopReason();
+    if (!reason) return;
+
+    this._sleepStopInProgress = true;
+    void this._queueTransition(async () => {
+      this._sleepStopInProgress = false;
+      const nextReason = this._getSleepModeStopReason();
+      if (!nextReason) return;
+      await this._enterSleepStopped(nextReason);
+    });
+  }
+
+  async _pauseCurrentPlaybackForSleep(reason = '') {
+    const video = this._getCurrentVideo();
+    try {
+      if (reason === 'live-ended' && video instanceof HTMLMediaElement) {
+        video.muted = true;
+      }
+      video?.pause?.();
+    } catch (_) {}
+
+    if (this._isVodPlayerContext()) {
+      await this._requestPlayerControl('pause', {}, 900);
+    }
+  }
+
+  async _enterSleepStopped(reason) {
+    if (this._sleepStopInProgress) return;
+
+    this._sleepStopInProgress = true;
+    const originUrl = this._sleepOriginUrl;
+
+    try {
+      try {
+        await this._pauseCurrentPlaybackForSleep(reason);
+      } catch (error) {
+        console.warn('[StreamRadio] 수면모드 재생 정지 요청 실패', error);
+      }
+
+      if (this.active) {
+        await this._disableInternal();
+      }
+
+      if (reason === 'live-ended' && originUrl && this._isVodUrl(location.href)) {
+        window.setTimeout(() => {
+          if (this._isVodUrl(location.href)) {
+            location.replace(originUrl);
+          }
+        }, 50);
+      }
+    } catch (error) {
+      console.warn('[StreamRadio] 수면모드 자동 정지 실패', error);
+    } finally {
+      this._sleepStopInProgress = false;
+    }
   }
 
   async _requestPlayerControl(action, payload = {}, timeoutMs = 700) {
@@ -714,6 +895,12 @@ class RadioModeCore {
     return this._queueTransition(async () => {
       if (token !== this._urlChangeToken) return;
       if (!this.active || !this.adapter) return;
+
+      const sleepStopReason = this._getSleepModeStopReason();
+      if (sleepStopReason === 'live-ended') {
+        await this._enterSleepStopped(sleepStopReason);
+        return;
+      }
 
       console.log('[StreamRadio] URL 변경 감지 → 라디오 모드 재바인딩:', location.href);
 

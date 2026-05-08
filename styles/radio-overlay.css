@@ -739,6 +739,20 @@
   background: rgba(255, 196, 87, 0.12);
 }
 
+.srm-audio-tool.srm-sleep-tool {
+  min-width: 152px;
+}
+
+.srm-audio-tool.srm-sleep-tool-active {
+  background: rgba(20, 184, 166, 0.14);
+  border-color: rgba(45, 212, 191, 0.46);
+  color: #ccfbf1;
+}
+
+.srm-audio-tool.srm-sleep-tool-active .srm-audio-tool-value {
+  color: #5eead4;
+}
+
 .srm-audio-tool-value {
   font-size: 12px;
   font-weight: 700;
@@ -770,6 +784,10 @@
   .srm-audio-tool {
     width: 100%;
     max-width: none;
+  }
+
+  .srm-audio-tool.srm-sleep-tool {
+    min-width: 0;
   }
 
   .srm-btn-group {
@@ -856,6 +874,10 @@
   .srm-audio-tool {
     min-width: 138px;
     padding: 8px 12px;
+  }
+
+  .srm-audio-tool.srm-sleep-tool {
+    min-width: 138px;
   }
 
   .srm-audio-tool-hint {
