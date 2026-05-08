@@ -168,20 +168,51 @@
     return playableLevels[playableLevels.length - 1].index;
   }
 
+  function getAdaptiveVodLevelIndex(levels) {
+    if (!Array.isArray(levels) || !levels.length) return null;
+
+    const adaptiveIndex = levels.findIndex((level) => level?.name === 'adaptive');
+    return adaptiveIndex >= 0 ? adaptiveIndex : 0;
+  }
+
+  function normalizeVodLevelIndex(levels, levelIndex) {
+    if (!Array.isArray(levels) || !levels.length || !Number.isInteger(levelIndex)) {
+      return null;
+    }
+
+    if (levelIndex >= 0 && levelIndex < levels.length) {
+      return levelIndex;
+    }
+
+    if (levelIndex === -1) {
+      return getAdaptiveVodLevelIndex(levels);
+    }
+
+    return null;
+  }
+
   function getVodLevelIndexByName(levels, qualityName) {
     if (!Array.isArray(levels) || !levels.length) return null;
 
-    if (typeof qualityName === 'number') return qualityName;
-
-    if (qualityName === 'AUTO') {
-      return levels.findIndex((level) => level?.name === 'adaptive');
+    if (typeof qualityName === 'number') {
+      return normalizeVodLevelIndex(levels, qualityName);
     }
 
-    if (qualityName === 'LOW') {
+    const numericQuality = Number(qualityName);
+    if (String(qualityName || '').trim() !== '' && Number.isInteger(numericQuality)) {
+      return normalizeVodLevelIndex(levels, numericQuality);
+    }
+
+    const normalized = String(qualityName || '').trim().toLowerCase();
+
+    if (normalized === 'auto' || normalized === 'adaptive') {
+      return getAdaptiveVodLevelIndex(levels);
+    }
+
+    if (normalized === 'low') {
       return getLowestVodLevelIndex(levels);
     }
 
-    const normalized = String(qualityName || '').toLowerCase();
     const matchedIndex = levels.findIndex((level) => {
       const candidates = [level?.name, level?.label, level?.resolution, level?.bitrate]
         .filter(Boolean)
@@ -194,11 +225,14 @@
 
   function getVodCurrentLevelIndex(playerController, levels, defaultQualityName) {
     if (typeof playerController?.nativeCurrentLevel === 'number') {
-      return playerController.nativeCurrentLevel;
+      const currentIndex = normalizeVodLevelIndex(levels, playerController.nativeCurrentLevel);
+      if (currentIndex !== null) {
+        return currentIndex;
+      }
     }
 
     const defaultIndex = getVodLevelIndexByName(levels, defaultQualityName);
-    return defaultIndex ?? 0;
+    return defaultIndex ?? getAdaptiveVodLevelIndex(levels);
   }
 
   // ── SOOP 화질 변경 (livePlayer / vodCore.playerController) ──

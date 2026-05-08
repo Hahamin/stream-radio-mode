@@ -29,9 +29,38 @@ window._srmChat = {
     return this._chatVisible;
   },
 
-  _setChatShellHidden(chatEl, hidden) {
+  _setChatShellHidden(chatEl, hidden, options = {}) {
     if (!chatEl) return;
-    chatEl.classList.toggle('srm-chat-shell-hidden', Boolean(hidden));
+
+    const { temporaryDisplay = false } = options;
+    const previousDisplayKey = 'srmPreviousDisplay';
+
+    if (hidden) {
+      chatEl.classList.add('srm-chat-shell-hidden');
+
+      if (temporaryDisplay) {
+        if (chatEl.dataset[previousDisplayKey] === undefined) {
+          chatEl.dataset[previousDisplayKey] = chatEl.style.display || '';
+        }
+        chatEl.style.setProperty('display', 'none', 'important');
+      }
+      return;
+    }
+
+    chatEl.classList.remove('srm-chat-shell-hidden');
+
+    if (chatEl.dataset[previousDisplayKey] !== undefined) {
+      const previousDisplay = chatEl.dataset[previousDisplayKey];
+      delete chatEl.dataset[previousDisplayKey];
+
+      if (previousDisplay) {
+        chatEl.style.display = previousDisplay;
+      } else {
+        chatEl.style.removeProperty('display');
+      }
+    } else if (chatEl.style.display === 'none') {
+      chatEl.style.removeProperty('display');
+    }
   },
 
   _setChatVisible(visible) {

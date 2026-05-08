@@ -401,46 +401,91 @@ class RadioModeCore {
       oldVideo.removeEventListener('volumechange', oldVolumeHandler);
     }
 
+    let volumeHandlerAttached = false;
+    let bandwidthEnabled = false;
+    let videoHidden = false;
+    let speechEqAttached = false;
+
+    const rollbackPartialEnable = async () => {
+      if (volumeHandlerAttached && this._volumeHandler) {
+        video.removeEventListener('volumechange', this._volumeHandler);
+        volumeHandlerAttached = false;
+      }
+
+      if (speechEqAttached) {
+        await this._detachSpeechEQ();
+        speechEqAttached = false;
+      }
+
+      if (bandwidthEnabled) {
+        window.__bandwidthSaver?.disable();
+        bandwidthEnabled = false;
+      }
+
+      if (videoHidden) {
+        video.style.opacity = '';
+        videoHidden = false;
+      }
+
+      RadioOverlayUI.hide();
+      window._srmList?._unbindNavIntercept();
+      this._volumeHandler = null;
+      if (this._videoRef === video) {
+        this._videoRef = null;
+      }
+      this.active = false;
+      this._stopUrlWatch();
+      this._syncToggleButton();
+    };
+
     this._videoRef = video;
     this._volumeHandler = () => {
       const effectiveVol = video.muted ? 0 : video.volume;
       RadioOverlayUI.updateVolume(effectiveVol);
     };
 
-    // 비디오 렌더링만 숨기고 오디오는 유지한다.
-    video.style.opacity = '0';
+    try {
+      // 비디오 렌더링만 숨기고 오디오는 유지한다.
+      video.style.opacity = '0';
+      videoHidden = true;
 
-    // 대역폭 절약은 page context의 플레이어 API만 사용한다.
-    window.__bandwidthSaver?.enable();
+      // 대역폭 절약은 page context의 플레이어 API만 사용한다.
+      window.__bandwidthSaver?.enable();
+      bandwidthEnabled = true;
 
-    const streamerInfo = await this.adapter.getStreamerInfo();
-    if (!this._matchesPlayer(video, matchOptions)) {
-      video.style.opacity = '';
-      window.__bandwidthSaver?.disable();
-      return;
+      const streamerInfo = await this.adapter.getStreamerInfo();
+      if (!this._matchesPlayer(video, matchOptions)) {
+        await rollbackPartialEnable();
+        return;
+      }
+
+      video.addEventListener('volumechange', this._volumeHandler);
+      volumeHandlerAttached = true;
+
+      const initialVol = video.muted ? 0 : video.volume;
+      speechEqAttached = true;
+      const speechEqState = await this._attachSpeechEQ(video);
+      RadioOverlayUI.show(document.body, streamerInfo, {
+        onDisable: () => {
+          void this.disable();
+        },
+        onVolumeChange: (vol) => this._setVolume(vol),
+        onPlaybackToggle: () => this._togglePlayback(),
+        currentVolume: initialVol,
+        speechEqState,
+        onSpeechEqToggle: () => this._toggleSpeechEQ(),
+        onSpeechEqPresetCycle: () => this._cycleSpeechEQPreset(),
+      });
+
+      this.active = true;
+      this._syncToggleButton();
+      this._notifyState();
+      this._saveState();
+      this._startUrlWatch();
+    } catch (error) {
+      await rollbackPartialEnable();
+      throw error;
     }
-
-    video.addEventListener('volumechange', this._volumeHandler);
-
-    const initialVol = video.muted ? 0 : video.volume;
-    const speechEqState = await this._attachSpeechEQ(video);
-    RadioOverlayUI.show(document.body, streamerInfo, {
-      onDisable: () => {
-        void this.disable();
-      },
-      onVolumeChange: (vol) => this._setVolume(vol),
-      onPlaybackToggle: () => this._togglePlayback(),
-      currentVolume: initialVol,
-      speechEqState,
-      onSpeechEqToggle: () => this._toggleSpeechEQ(),
-      onSpeechEqPresetCycle: () => this._cycleSpeechEQPreset(),
-    });
-
-    this.active = true;
-    this._syncToggleButton();
-    this._notifyState();
-    this._saveState();
-    this._startUrlWatch();
   }
 
   async _disableInternal() {

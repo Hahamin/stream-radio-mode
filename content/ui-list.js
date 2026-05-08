@@ -188,7 +188,7 @@ window._srmList = {
           if (lp) {
             lp.style.setProperty('display', 'none', 'important');
           }
-          chatEl.style.setProperty('display', 'none', 'important');
+          window._srmChat?._setChatShellHidden(chatEl, true, { temporaryDisplay: true });
         }
         window._srmDarkTheme?._removeDarkOverrideStyle();
         window._srmDarkTheme?._restoreAncestorTransforms();
