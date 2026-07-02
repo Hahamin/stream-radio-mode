@@ -300,35 +300,13 @@ SOOP 실제 DOM과 플레이어 API는 바뀔 수 있습니다. 문제가 재현
 
 ---
 
-## 개발 검증
-
-```powershell
-npm test
-npm audit --audit-level=low
-npm run cws:package
-```
-
-수동/자동 스모크 체크:
-
-- 라이브 페이지에서 헤드폰 버튼 주입 확인
-- 라디오 ON/OFF 시 영상 opacity와 화질 복원 확인
-- VOD 라디오보드의 재생 시간, 진행바, seek 동작 확인
-- 수면모드 ON 상태에서 라이브 종료/VOD 종료 자동 정지 확인
-- 팝업 수면모드 토글과 오버레이 수면모드 버튼 양방향 동기화 확인
-- 채팅/리스트 링크 이동 후 새 플레이어 재바인딩 확인
-- 루팡 모드 제목/파비콘 위장 및 원복 확인
-- 데스크톱/모바일 폭에서 버튼 겹침이나 overflow 없음 확인
-
-Chrome Web Store API 배포 자동화는 [docs/chrome-web-store-api.md](docs/chrome-web-store-api.md)를 참고하세요.
-
----
-
 ## 기여
 
 버그 리포트, 기능 제안, PR 모두 환영합니다.
 
 - [이슈 등록](https://github.com/Hahamin/stream-radio-mode/issues)
 - Fork → Branch → PR
+- 배포 자동화 문서: [docs/chrome-web-store-api.md](docs/chrome-web-store-api.md)
 
 ---
 

@@ -294,35 +294,13 @@ SOOP's real DOM and player APIs can change. Please open a [GitHub issue](https:/
 
 ---
 
-## Development Checks
-
-```powershell
-npm test
-npm audit --audit-level=low
-npm run cws:package
-```
-
-Manual/automated smoke coverage:
-
-- headphone button injection on live pages
-- radio mode ON/OFF video opacity and quality restore
-- VOD time/progress/seek behavior
-- Sleep Mode automatic stop for live-ended and VOD-ended states
-- popup Sleep Mode toggle and overlay Sleep Mode button sync
-- chat/list internal navigation rebind
-- stealth title/favicon disguise and restore
-- no button overlap or overflow on desktop/mobile widths
-
-Chrome Web Store API automation is documented in [docs/chrome-web-store-api.md](docs/chrome-web-store-api.md).
-
----
-
 ## Contributing
 
 Bug reports, feature requests, and PRs are welcome.
 
 - [Open an issue](https://github.com/Hahamin/stream-radio-mode/issues)
 - Fork -> Branch -> PR
+- Release automation: [docs/chrome-web-store-api.md](docs/chrome-web-store-api.md)
 
 ---
 
