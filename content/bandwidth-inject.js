@@ -17,6 +17,9 @@
   let liveQualityMonitorState = null;
   let playerStateBridgeInterval = 0;
   let lastPlayerStateSignature = '';
+  // 화질 변경 write-then-verify 결과: null(미실행) | 'ok' | 'mismatch'
+  let lastQualityVerify = null;
+  let qualityVerifyTimer = 0;
 
   const LIVE_SAFE_RADIO_QUALITY = 'NORMAL';
   const LIVE_EXTRA_SAVER_QUALITY = 'LOW';
@@ -119,6 +122,9 @@
     const mainMedia = liveMainMedia instanceof HTMLVideoElement ? liveMainMedia : (
       vodMedia instanceof HTMLVideoElement ? vodMedia : null
     );
+    // window.livePlayer는 재생 시작 전엔 id 기반 named access로 DOM 요소를
+    // 가리킬 수 있다 — 실제 플레이어 객체와 구분한다.
+    const livePlayerObj = livePlayer && !(livePlayer instanceof Element) ? livePlayer : null;
     const snapshot = {
       site: 'soop',
       mainMediaId: mainMedia instanceof HTMLVideoElement ? (mainMedia.id || null) : null,
@@ -132,6 +138,18 @@
       vodEnded: vodMedia instanceof HTMLMediaElement ? vodMedia.ended : null,
       vodReadyState: vodMedia instanceof HTMLMediaElement ? vodMedia.readyState : null,
       vodSeeking: Boolean(vodPlayerController?._isSeeking),
+      // 어댑터 헬스체크용 capability 신호
+      caps: {
+        hasLivePlayer: Boolean(livePlayerObj),
+        hasChangeQuality: livePlayerObj
+          ? (
+            typeof livePlayerObj.changeQuality === 'function'
+            || typeof livePlayerObj.streamConnector?.streamer?.changeQuality === 'function'
+          )
+          : null,
+        hasVodController: Boolean(vodPlayerController),
+        qualityVerify: lastQualityVerify,
+      },
     };
 
     const signature = JSON.stringify(snapshot);
@@ -168,20 +186,51 @@
     return playableLevels[playableLevels.length - 1].index;
   }
 
+  function getAdaptiveVodLevelIndex(levels) {
+    if (!Array.isArray(levels) || !levels.length) return null;
+
+    const adaptiveIndex = levels.findIndex((level) => level?.name === 'adaptive');
+    return adaptiveIndex >= 0 ? adaptiveIndex : 0;
+  }
+
+  function normalizeVodLevelIndex(levels, levelIndex) {
+    if (!Array.isArray(levels) || !levels.length || !Number.isInteger(levelIndex)) {
+      return null;
+    }
+
+    if (levelIndex >= 0 && levelIndex < levels.length) {
+      return levelIndex;
+    }
+
+    if (levelIndex === -1) {
+      return getAdaptiveVodLevelIndex(levels);
+    }
+
+    return null;
+  }
+
   function getVodLevelIndexByName(levels, qualityName) {
     if (!Array.isArray(levels) || !levels.length) return null;
 
-    if (typeof qualityName === 'number') return qualityName;
-
-    if (qualityName === 'AUTO') {
-      return levels.findIndex((level) => level?.name === 'adaptive');
+    if (typeof qualityName === 'number') {
+      return normalizeVodLevelIndex(levels, qualityName);
     }
 
-    if (qualityName === 'LOW') {
+    const numericQuality = Number(qualityName);
+    if (String(qualityName || '').trim() !== '' && Number.isInteger(numericQuality)) {
+      return normalizeVodLevelIndex(levels, numericQuality);
+    }
+
+    const normalized = String(qualityName || '').trim().toLowerCase();
+
+    if (normalized === 'auto' || normalized === 'adaptive') {
+      return getAdaptiveVodLevelIndex(levels);
+    }
+
+    if (normalized === 'low') {
       return getLowestVodLevelIndex(levels);
     }
 
-    const normalized = String(qualityName || '').toLowerCase();
     const matchedIndex = levels.findIndex((level) => {
       const candidates = [level?.name, level?.label, level?.resolution, level?.bitrate]
         .filter(Boolean)
@@ -194,11 +243,14 @@
 
   function getVodCurrentLevelIndex(playerController, levels, defaultQualityName) {
     if (typeof playerController?.nativeCurrentLevel === 'number') {
-      return playerController.nativeCurrentLevel;
+      const currentIndex = normalizeVodLevelIndex(levels, playerController.nativeCurrentLevel);
+      if (currentIndex !== null) {
+        return currentIndex;
+      }
     }
 
     const defaultIndex = getVodLevelIndexByName(levels, defaultQualityName);
-    return defaultIndex ?? 0;
+    return defaultIndex ?? getAdaptiveVodLevelIndex(levels);
   }
 
   // ── SOOP 화질 변경 (livePlayer / vodCore.playerController) ──
@@ -216,6 +268,7 @@
         if (typeof lp.changeQuality === 'function') {
           console.log('[StreamRadio] SOOP 화질 변경 (livePlayer): ' + qualityName);
           lp.changeQuality(qualityName);
+          scheduleQualityVerify(qualityName);
           setTimeout(() => emitPlayerState(true), 100);
           return true;
         }
@@ -225,6 +278,7 @@
         if (streamer && typeof streamer.changeQuality === 'function') {
           console.log('[StreamRadio] SOOP 화질 변경 (streamer): ' + qualityName);
           streamer.changeQuality(qualityName);
+          scheduleQualityVerify(qualityName);
           setTimeout(() => emitPlayerState(true), 100);
           return true;
         }
@@ -279,6 +333,32 @@
       }
       return false;
     }
+  }
+
+  // 화질 변경 write-then-verify: 호출 성공 ≠ 실제 변경 성공.
+  // SOOP이 화질 enum을 개편하면 changeQuality가 조용히 무시될 수 있어
+  // 2초 뒤 localStorage 판독으로 실효를 확인한다.
+  function scheduleQualityVerify(requestedQuality) {
+    if (qualityVerifyTimer) {
+      clearTimeout(qualityVerifyTimer);
+    }
+    qualityVerifyTimer = setTimeout(() => {
+      qualityVerifyTimer = 0;
+      try {
+        const stored = normalizeLiveQualityName(localStorage.getItem('quality'));
+        const requested = normalizeLiveQualityName(requestedQuality);
+        if (!stored) {
+          return; // 판독 불가 — 판정 보류
+        }
+        lastQualityVerify = stored === requested ? 'ok' : 'mismatch';
+        if (lastQualityVerify === 'mismatch') {
+          console.warn(
+            `[StreamRadio] 화질 변경 미적용 감지: 요청=${requested}, 실제=${stored}`
+          );
+        }
+        emitPlayerState(true);
+      } catch (_) {}
+    }, 2000);
   }
 
   // 현재 SOOP 화질 가져오기
@@ -531,6 +611,25 @@
 
     if (!(media instanceof HTMLMediaElement)) {
       return false;
+    }
+
+    if (action === 'pause') {
+      try {
+        if (typeof playerController?.pauseMedia === 'function') {
+          playerController.pauseMedia();
+        } else {
+          media.pause?.();
+        }
+        setTimeout(() => emitPlayerState(true), 0);
+        setTimeout(() => emitPlayerState(true), 80);
+        return {
+          ok: true,
+          paused: true,
+          currentTime: Number.isFinite(media.currentTime) ? media.currentTime : 0,
+        };
+      } catch (_) {
+        return { ok: false };
+      }
     }
 
     if (action === 'toggle-play') {

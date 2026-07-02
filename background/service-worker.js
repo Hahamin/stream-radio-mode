@@ -13,6 +13,7 @@ function getDefaultBackgroundState() {
       windowId: null,
     },
     minimizedWindowId: null,
+    radioTabId: null,
   };
 }
 
@@ -48,16 +49,24 @@ async function setBackgroundState(nextState) {
   return normalized;
 }
 
-async function patchBackgroundState(patch) {
-  const current = await getBackgroundState();
-  return setBackgroundState({
-    ...current,
-    ...(patch || {}),
-    bossMode: {
-      ...current.bossMode,
-      ...(patch?.bossMode || {}),
-    },
+// read-modify-write 직렬화: 동시 patch(예: Alt+B와 Alt+M 동시 입력)가
+// 서로의 쓰기를 stale 스냅샷으로 덮어쓰는 경합 방지
+let backgroundStateWriteQueue = Promise.resolve();
+
+function patchBackgroundState(patch) {
+  const run = backgroundStateWriteQueue.then(async () => {
+    const current = await getBackgroundState();
+    return setBackgroundState({
+      ...current,
+      ...(patch || {}),
+      bossMode: {
+        ...current.bossMode,
+        ...(patch?.bossMode || {}),
+      },
+    });
   });
+  backgroundStateWriteQueue = run.then(() => undefined, () => undefined);
+  return run;
 }
 
 function resolveTabId(msg, sender) {
@@ -122,6 +131,11 @@ async function getValidatedMinimizedWindowId() {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'state-changed' && sender.tab?.id) {
     updateBadge(sender.tab.id, msg.active);
+    void updateRadioTabId(sender.tab.id, msg.active);
+  }
+
+  if (msg.action === 'health-report' && sender.tab?.id) {
+    updateHealthBadge(sender.tab.id, msg.failures || []);
   }
 
   if (msg.action === 'toggle-boss') {
@@ -317,12 +331,97 @@ async function toggleMinimizeMode(windowId) {
 // 뱃지 상태 업데이트
 function updateBadge(tabId, active) {
   if (active) {
-    chrome.action.setBadgeText({ text: 'ON', tabId });
-    chrome.action.setBadgeBackgroundColor({ color: '#648cff', tabId });
+    chrome.action.setBadgeText({ text: 'ON', tabId }).catch(() => {});
+    chrome.action.setBadgeBackgroundColor({ color: '#648cff', tabId }).catch(() => {});
   } else {
-    chrome.action.setBadgeText({ text: '', tabId });
+    chrome.action.setBadgeText({ text: '', tabId }).catch(() => {});
   }
 }
+
+// 어댑터 헬스 경고 뱃지 — 조용한 파손을 사용자에게 드러낸다
+function updateHealthBadge(tabId, failures) {
+  if (Array.isArray(failures) && failures.length) {
+    chrome.action.setBadgeText({ text: '!', tabId }).catch(() => {});
+    chrome.action.setBadgeBackgroundColor({ color: '#ff5147', tabId }).catch(() => {});
+  } else {
+    // 경고 해제 → 라디오 상태 뱃지 복원은 content의 state-changed가 담당하므로
+    // 여기서는 기본(빈) 상태로만 되돌린 뒤 상태 조회로 재동기화한다.
+    chrome.tabs.sendMessage(tabId, { action: 'get-state' })
+      .then((state) => updateBadge(tabId, Boolean(state?.active)))
+      .catch(() => {
+        chrome.action.setBadgeText({ text: '', tabId }).catch(() => {});
+      });
+  }
+}
+
+// 마지막 라디오 활성 탭 추적 (전역 단축키 라우팅용)
+async function updateRadioTabId(tabId, active) {
+  try {
+    const state = await getBackgroundState();
+    if (active) {
+      if (state.radioTabId !== tabId) {
+        await patchBackgroundState({ radioTabId: tabId });
+      }
+    } else if (state.radioTabId === tabId) {
+      await patchBackgroundState({ radioTabId: null });
+    }
+  } catch (_) {}
+}
+
+// ── 전역 단축키 (chrome.commands) ──
+// 탭 포커스와 무관하게 브라우저 어디서나 동작. 루팡/최소화 모드는
+// 정의상 다른 탭에 있을 때 쓰므로 전역 라우팅이 필수다.
+const RADIO_TAB_URL_PATTERNS = [
+  '*://play.sooplive.co.kr/*',
+  '*://play.sooplive.com/*',
+  '*://vod.sooplive.co.kr/player/*',
+  '*://vod.sooplive.com/player/*',
+];
+
+async function findRadioTargetTab() {
+  let candidates = [];
+  try {
+    candidates = await chrome.tabs.query({ url: RADIO_TAB_URL_PATTERNS });
+  } catch (_) {
+    return null;
+  }
+  if (!candidates.length) return null;
+
+  const activeTab = candidates.find((tab) => tab.active);
+  if (activeTab) return activeTab;
+
+  try {
+    const state = await getBackgroundState();
+    if (state.radioTabId) {
+      const radioTab = candidates.find((tab) => tab.id === state.radioTabId);
+      if (radioTab) return radioTab;
+    }
+  } catch (_) {}
+
+  return candidates
+    .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0] || null;
+}
+
+chrome.commands?.onCommand.addListener((command) => {
+  void (async () => {
+    const tab = await findRadioTargetTab();
+    if (!tab?.id) return;
+
+    if (command === 'toggle-radio') {
+      await chrome.tabs.sendMessage(tab.id, { action: 'toggle-radio' }).catch(() => {});
+      return;
+    }
+
+    if (command === 'toggle-boss') {
+      await toggleBossMode(tab.id, tab.windowId ?? null);
+      return;
+    }
+
+    if (command === 'toggle-minimize') {
+      await toggleMinimizeMode(tab.windowId ?? null);
+    }
+  })();
+});
 
 // 탭 업데이트 시 뱃지 초기화
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {

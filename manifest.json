@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Stream Radio Mode",
-  "version": "1.4.0",
-  "description": "숲(SOOP) 라이브 스트리밍 라디오 모드 — 오디오만 재생하여 시스템 리소스 절약",
+  "version": "1.5.0",
+  "description": "숲(SOOP) 라이브/VOD를 라디오처럼 듣고 수면모드, 루팡모드, 대사 EQ, 단축키로 편하게 제어합니다.",
   "permissions": ["storage", "activeTab", "tabs"],
   "content_scripts": [
     {
@@ -32,6 +32,19 @@
   ],
   "background": {
     "service_worker": "background/service-worker.js"
+  },
+  "commands": {
+    "toggle-radio": {
+      "suggested_key": { "default": "Alt+Shift+R" },
+      "description": "라디오 모드 토글 (브라우저 어디서나)"
+    },
+    "toggle-boss": {
+      "suggested_key": { "default": "Alt+Shift+B" },
+      "description": "루팡 모드 토글 (브라우저 어디서나)"
+    },
+    "toggle-minimize": {
+      "description": "최소화 모드 토글 (브라우저 어디서나)"
+    }
   },
   "action": {
     "default_popup": "popup/popup.html",

@@ -83,11 +83,14 @@ class SoopAdapter {
     if (!this.isLivePage()) return null;
 
     const mainMedia = this._getMainMediaElement();
-    if (Number.isFinite(this._scoreVideoElement(mainMedia))) {
+    const mainMediaScore = this._scoreVideoElement(mainMedia);
+    if (Number.isFinite(mainMediaScore) && mainMediaScore >= 0) {
       return mainMedia;
     }
 
     const selectors = [
+      '#videoLayer video#livePlayer',
+      '#player_area #player video',
       '#player_area .htmlplayer_wrap video',
       '#player_area video',
       '#webplayer_contents #player_area video',
@@ -110,7 +113,7 @@ class SoopAdapter {
 
     const scored = candidates
       .map((video) => ({ video, score: this._scoreVideoElement(video) }))
-      .filter(({ score }) => Number.isFinite(score))
+      .filter(({ score }) => Number.isFinite(score) && score >= 0)
       .sort((a, b) => b.score - a.score);
 
     return scored[0]?.video || null;
@@ -386,7 +389,7 @@ class SoopVodAdapter {
         return true;
       })
       .map((video) => ({ video, score: this._scoreVideoElement(video) }))
-      .filter(({ score }) => Number.isFinite(score))
+      .filter(({ score }) => Number.isFinite(score) && score >= 0)
       .sort((a, b) => b.score - a.score);
 
     return scored[0]?.video || null;
@@ -775,13 +778,42 @@ class SoopVodAdapter {
 
   let adapter = null;
   let lastUrl = location.href;
+  let lastSyncSignature = null;
   let syncQueue = Promise.resolve();
+
+  // URL + 라이브 여부 + 비디오 존재 여부의 복합 시그니처.
+  // URL이 안 바뀌는 상태 전환(오프라인→방송 시작, 연령/비번 게이트 통과 후
+  // 비디오 늦은 등장)도 재동기화 대상으로 잡는다.
+  const computeSyncSignature = () => {
+    const url = location.href;
+    let supported = false;
+    let hasVideo = false;
+    try {
+      let probe = null;
+      if (SoopAdapter.isLivePageUrl(url)) {
+        probe = adapter instanceof SoopAdapter ? adapter : new SoopAdapter();
+      } else if (SoopVodAdapter.isVodPageUrl(url)) {
+        probe = adapter instanceof SoopVodAdapter ? adapter : new SoopVodAdapter();
+      }
+      if (probe) {
+        supported = probe.isLivePage();
+        hasVideo = supported && Boolean(probe.findVideoElement());
+      }
+    } catch (_) {}
+    return `${url}|${supported}|${hasVideo}`;
+  };
+
   const scheduleSync = (options = {}) => {
     const currentUrl = location.href;
     const urlChanged = currentUrl !== lastUrl;
     lastUrl = currentUrl;
-    if (!urlChanged && options.force !== true) return;
-    void queueSync({ urlChanged: true });
+
+    const signature = computeSyncSignature();
+    const signatureChanged = signature !== lastSyncSignature;
+    lastSyncSignature = signature;
+
+    if (!signatureChanged && options.force !== true) return;
+    void queueSync({ urlChanged });
   };
 
   async function syncAdapterState(options = {}) {
@@ -813,10 +845,14 @@ class SoopVodAdapter {
   }
 
   function queueSync(options = {}) {
-    syncQueue = syncQueue.then(
-      () => syncAdapterState(options),
-      () => syncAdapterState(options)
-    );
+    syncQueue = syncQueue
+      .then(
+        () => syncAdapterState(options),
+        () => syncAdapterState(options)
+      )
+      .catch((error) => {
+        console.debug('[StreamRadio] 어댑터 동기화 실패:', error);
+      });
     return syncQueue;
   }
 
@@ -833,6 +869,7 @@ class SoopVodAdapter {
       window.__srmSoopPageState = {
         ...window.__srmSoopPageState,
         ...event.data.state,
+        __updatedAt: Date.now(),
       };
       return;
     }
@@ -850,11 +887,9 @@ class SoopVodAdapter {
     scheduleSync({ force: true });
   });
 
-  window.__bandwidthSaver?._ensureInjected();
-
   window.setInterval(() => {
     scheduleSync();
   }, 2000);
 
-  void queueSync();
+  scheduleSync({ force: true });
 })();

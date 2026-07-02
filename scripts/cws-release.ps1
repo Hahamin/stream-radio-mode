@@ -180,16 +180,16 @@ function Get-AccessTokenFromGcloud {
 
     Assert-Command -CommandName "gcloud" -InstallHint "Google Cloud SDK를 설치하고 로그인하세요."
 
-    if ($env:CWS_GCP_PROJECT_ID) {
-        $null = & gcloud config set project $env:CWS_GCP_PROJECT_ID 2>$null
-    }
-
     $arguments = @(
         "auth",
         "print-access-token",
         "--impersonate-service-account=$serviceAccountEmail",
         "--scopes=$ChromeWebStoreScope"
     )
+
+    if ($env:CWS_GCP_PROJECT_ID) {
+        $arguments += "--project=$($env:CWS_GCP_PROJECT_ID)"
+    }
 
     $token = (& gcloud @arguments).Trim()
     if (-not $token) {

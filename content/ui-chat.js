@@ -29,9 +29,38 @@ window._srmChat = {
     return this._chatVisible;
   },
 
-  _setChatShellHidden(chatEl, hidden) {
+  _setChatShellHidden(chatEl, hidden, options = {}) {
     if (!chatEl) return;
-    chatEl.classList.toggle('srm-chat-shell-hidden', Boolean(hidden));
+
+    const { temporaryDisplay = false } = options;
+    const previousDisplayKey = 'srmPreviousDisplay';
+
+    if (hidden) {
+      chatEl.classList.add('srm-chat-shell-hidden');
+
+      if (temporaryDisplay) {
+        if (chatEl.dataset[previousDisplayKey] === undefined) {
+          chatEl.dataset[previousDisplayKey] = chatEl.style.display || '';
+        }
+        chatEl.style.setProperty('display', 'none', 'important');
+      }
+      return;
+    }
+
+    chatEl.classList.remove('srm-chat-shell-hidden');
+
+    if (chatEl.dataset[previousDisplayKey] !== undefined) {
+      const previousDisplay = chatEl.dataset[previousDisplayKey];
+      delete chatEl.dataset[previousDisplayKey];
+
+      if (previousDisplay) {
+        chatEl.style.display = previousDisplay;
+      } else {
+        chatEl.style.removeProperty('display');
+      }
+    } else if (chatEl.style.display === 'none') {
+      chatEl.style.removeProperty('display');
+    }
   },
 
   _setChatVisible(visible) {
@@ -179,6 +208,11 @@ window._srmChat = {
         const cb = chatEl.querySelector('#chatbox');
         if (cb) cb.style.setProperty('height', '100%', 'important');
       }
+
+      // 새 메시지로 인한 재레이아웃에서 사용자의 읽기 위치 유지
+      // (위로 스크롤해 둔 경우 앵커 기준 복원, 바닥이면 바닥 고정)
+      this._syncChatScrollController(chatEl);
+      this._maintainChatScrollPosition();
 
       this._syncFloatingLayers(chatEl);
       window._srmList?._syncListPanel(chatEl);

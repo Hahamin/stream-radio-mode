@@ -127,6 +127,17 @@
 
     async toggle(video = this._attachedVideo) {
       await this.init();
+
+      // "켜짐으로 표시되지만 실제로는 안 도는" 상태(자동 활성화 시
+      // AudioContext suspended 등)에서는 끄기 대신 재연결을 시도한다 —
+      // 사용자 의도는 명백히 '작동시키기'이므로.
+      if (this._enabled && video instanceof HTMLMediaElement && !this.getState().activeProcessing) {
+        await this._connect(video, true);
+        if (this.getState().activeProcessing) {
+          return this.getState();
+        }
+      }
+
       this._enabled = !this._enabled;
       await this._persist();
 
@@ -180,7 +191,17 @@
         return;
       }
 
+      const previousSource = this._activeSource;
       this._disconnectGraph();
+
+      // 다른 요소로 갈아탈 때 이전 요소의 소스를 destination에 직결로 복원.
+      // createMediaElementSource를 거친 요소는 컨텍스트에 영구 캡처되므로
+      // 그냥 두면 살아 있어도 무음이 된다.
+      if (previousSource && previousSource !== source) {
+        try {
+          previousSource.connect(context.destination);
+        } catch (_) {}
+      }
 
       if (processed) {
         const nodes = this._ensureNodes(context);
@@ -239,10 +260,41 @@
       }
 
       if (requireRunning && this._audioContext.state !== 'running') {
+        // 제스처 없이 생성된 컨텍스트는 resume이 거부된다 (autoRadio 경로).
+        // 다음 사용자 입력에서 자동 재시도해 데드락을 푼다.
+        this._registerGestureRetry();
         return null;
       }
 
       return this._audioContext;
+    },
+
+    _gestureRetryBound: false,
+
+    _registerGestureRetry() {
+      if (this._gestureRetryBound) return;
+      this._gestureRetryBound = true;
+
+      const retry = () => {
+        window.removeEventListener('pointerdown', retry, true);
+        window.removeEventListener('keydown', retry, true);
+        this._gestureRetryBound = false;
+
+        void (async () => {
+          if (!this._enabled || !(this._attachedVideo instanceof HTMLMediaElement)) return;
+          try {
+            await this._connect(this._attachedVideo, true);
+          } catch (_) {}
+          const state = this.getState();
+          if (state.activeProcessing) {
+            console.log('[StreamRadio] 사용자 입력으로 대사 EQ 재개');
+          }
+          window.RadioOverlayUI?.updateSpeechEQ?.(state);
+        })();
+      };
+
+      window.addEventListener('pointerdown', retry, true);
+      window.addEventListener('keydown', retry, true);
     },
 
     _getOrCreateSource(video, context) {

@@ -31,7 +31,20 @@ const BandwidthSaver = {
   },
 
   _isPlayerDocument() {
-    return location.hostname.includes('sooplive.co.kr') || location.hostname.includes('sooplive.com');
+    try {
+      const url = new URL(location.href);
+      const hostname = url.hostname.toLowerCase();
+      const segments = url.pathname.split('/').filter(Boolean);
+      const isLivePlayer = hostname === 'play.sooplive.co.kr' || hostname === 'play.sooplive.com';
+      const isVodPlayer = (
+        hostname === 'vod.sooplive.co.kr'
+        || hostname === 'vod.sooplive.com'
+      ) && segments[0] === 'player';
+
+      return isLivePlayer || isVodPlayer;
+    } catch {
+      return false;
+    }
   },
 
   _broadcastToPlayerFrames(action) {

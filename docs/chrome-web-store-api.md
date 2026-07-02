@@ -110,6 +110,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\cws-release.ps1 -Action publi
 ## 주의사항
 
 - GitHub에 푸시해도 Chrome Web Store는 자동 갱신되지 않습니다. 이 스크립트를 별도로 실행해야 합니다.
+- Chrome Web Store API V2는 패키지 업로드, 배포 제출, 상태 조회, 제출 취소, 배포 비율 조정만 지원합니다. 스토어 상세설명, 짧은 설명, 스크린샷, 개인정보 항목 같은 listing metadata는 Developer Dashboard의 Store listing/Privacy 탭에서 직접 수정해야 합니다.
+- 확장 프로그램 패키지 안에 들어가는 설명은 `manifest.json`의 `description` 값입니다. 이 값은 패키징 ZIP에 포함되지만, Chrome Web Store 상세설명 문안 자체를 대신 수정하지는 않습니다.
 - Dashboard에서 공개 범위나 배포 설정을 바꾼 직후에는 API publish가 막힐 수 있습니다. 이 경우 Dashboard에서 한 번 수동 배포 후 다시 API를 사용하세요.
 - 스크립트는 기본적으로 `node_modules`, `docs`, `scripts`, `README*`, `LICENSE`, `.env*` 등을 제외하고 업로드 ZIP을 만듭니다.
 - Service Account 방식을 쓰려면, 현재 로그인한 사용자에게 대상 서비스 계정의 `Service Account Token Creator` 권한이 있어야 합니다.

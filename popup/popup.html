@@ -16,6 +16,8 @@
       <span id="statusText">감지 중...</span>
     </div>
 
+    <div class="health-warning" id="healthWarning" hidden></div>
+
     <div class="section">
       <div class="setting-row">
         <div class="setting-label">
@@ -35,6 +37,17 @@
         </div>
         <label class="toggle">
           <input type="checkbox" id="autoRadio">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row sleep-row">
+        <div class="setting-label">
+          <span class="setting-title">수면모드</span>
+          <span class="setting-desc">방송/VOD 종료 시 자동 정지</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="sleepModeToggle">
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -84,7 +97,10 @@
         </label>
       </div>
       <div class="shortcut-keys" id="shortcutKeys">
-        <kbd>Alt</kbd>+<kbd>R</kbd> 라디오 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>B</kbd> 루팡 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>M</kbd> 최소화 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> 볼륨
+        <kbd>Alt</kbd>+<kbd>R</kbd> 라디오 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>B</kbd> 루팡 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>M</kbd> 최소화 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> 볼륨 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>0</kbd> 음소거
+      </div>
+      <div class="shortcut-keys">
+        <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> 라디오 &nbsp;|&nbsp; <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> 루팡 — 다른 탭에서도 동작
       </div>
       <button class="shortcut-help-btn" id="shortcutHelpBtn" type="button" aria-expanded="false">
         설명 보기

@@ -5,6 +5,7 @@
 window._srmList = {
   _listVisible: true,
   _listTabHandler: null,
+  _boundListTab: null,
   _listCloseBtnHandler: null,
   _boundListArea: null,
   _navInterceptHandler: null,
@@ -42,13 +43,26 @@ window._srmList = {
       window.setTimeout(() => this._showListPanel(chatEl), 800);
     }
 
-    if (listTab && !this._listTabHandler) {
-      this._listTabHandler = () => {
-        this._listVisible = true;
-        this._listPanelShown = false;
-        requestAnimationFrame(() => this._showListPanel(chatEl));
-      };
-      listTab.addEventListener('click', this._listTabHandler, true);
+    if (listTab) {
+      // SPA 이동으로 chatEl/탭이 교체됐는데 핸들러가 죽은 요소에 남아 있으면
+      // 정리 후 새 탭에 재바인딩한다 (teardown이 스킵되는 경로 대비).
+      const staleBinding = this._listTabHandler
+        && (this._boundListTab !== listTab || !this._boundListTab?.isConnected);
+      if (staleBinding) {
+        this._boundListTab?.removeEventListener('click', this._listTabHandler, true);
+        this._listTabHandler = null;
+        this._boundListTab = null;
+      }
+
+      if (!this._listTabHandler) {
+        this._listTabHandler = () => {
+          this._listVisible = true;
+          this._listPanelShown = false;
+          requestAnimationFrame(() => this._showListPanel(chatEl));
+        };
+        listTab.addEventListener('click', this._listTabHandler, true);
+        this._boundListTab = listTab;
+      }
     }
 
     // filter_list 내부 필터 탭 (전체/VOD/Catch/추천방송) 핸들러
@@ -188,7 +202,7 @@ window._srmList = {
           if (lp) {
             lp.style.setProperty('display', 'none', 'important');
           }
-          chatEl.style.setProperty('display', 'none', 'important');
+          window._srmChat?._setChatShellHidden(chatEl, true, { temporaryDisplay: true });
         }
         window._srmDarkTheme?._removeDarkOverrideStyle();
         window._srmDarkTheme?._restoreAncestorTransforms();
@@ -313,12 +327,16 @@ window._srmList = {
 
     delete chatEl?.dataset?.srmSoopListInit;
 
-    const { listTab } = this._findChatLayoutParts(chatEl);
-    if (listTab && this._listTabHandler) {
-      listTab.removeEventListener('click', this._listTabHandler, true);
+    if (this._listTabHandler) {
+      // DOM이 이미 교체된 경우 재탐색으로는 옛 탭을 못 찾으므로
+      // 바인딩 시점에 기억해 둔 요소에서 직접 제거한다.
+      const boundTab = this._boundListTab
+        || this._findChatLayoutParts(chatEl).listTab;
+      boundTab?.removeEventListener('click', this._listTabHandler, true);
     }
 
     this._listTabHandler = null;
+    this._boundListTab = null;
     this._listPanelShown = false;
   },
 };
