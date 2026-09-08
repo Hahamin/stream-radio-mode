@@ -1,10 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Stream Radio Mode",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "숲(SOOP) 라이브/VOD를 라디오처럼 듣고 수면모드, 루팡모드, 대사 EQ, 단축키로 편하게 제어합니다.",
   "permissions": ["storage", "activeTab", "tabs"],
   "content_scripts": [
+    {
+      "matches": ["*://*.sooplive.co.kr/*", "*://*.sooplive.com/*"],
+      "js": ["content/paste-unlock.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    },
     {
       "matches": ["*://*.sooplive.co.kr/*", "*://*.sooplive.com/*"],
       "js": [

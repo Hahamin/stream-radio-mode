@@ -31,6 +31,7 @@ Stream Radio Mode is a Chrome extension for [SOOP](https://www.sooplive.com/) li
 | Minimize Mode | Minimizes the current browser window | leaving audio on with the window out of the way |
 | Media Keys | Control playback with keyboard media keys and Bluetooth earbuds | hands-free control while multitasking |
 | Global Shortcuts | `Alt+Shift+R` etc. work from any tab | toggling radio/stealth while on another tab |
+| Chat Paste Unlock | Automatically unblocks paste in the chat input | when Ctrl+V does not work in SOOP chat |
 | Health Badge | Shows a red `!` badge when SOOP changes break a feature | catching silent breakage early |
 
 ---
@@ -184,6 +185,10 @@ Radio Mode can still show SOOP chat.
 - The list panel can appear on the left for SOOP recommendations/lists.
 - If you click an internal SOOP stream link from chat/list, radio mode can rebind to the new player.
 
+### Chat Paste Unlock
+
+SOOP blocks Ctrl+V paste in the chat input. This extension automatically unblocks paste with no extra setup. It works on every SOOP page regardless of whether radio mode is on.
+
 ### Stealth Mode
 
 Stealth Mode reduces what is visible in the browser chrome.
@@ -301,6 +306,39 @@ Bug reports, feature requests, and PRs are welcome.
 - [Open an issue](https://github.com/Hahamin/stream-radio-mode/issues)
 - Fork -> Branch -> PR
 - Release automation: [docs/chrome-web-store-api.md](docs/chrome-web-store-api.md)
+
+---
+
+## Version History
+
+### v1.5.1
+
+- Automatically unblock paste (Ctrl+V) in the chat input
+
+### v1.5.0
+
+- Speech EQ (clarity / bass-cut / night presets)
+- Sleep Mode (auto-stop on live end or VOD finish)
+- VOD Radio Board (seek bar, time display, thumbnails)
+- Automatic bandwidth saving (adaptive quality control)
+- Chat/list panel dark theme
+- Health badge
+- Media key and Bluetooth earbud support
+- Stealth Mode and Minimize Mode
+- Global shortcuts (`Alt+Shift+R`, `Alt+Shift+B`)
+
+### v1.2.0
+
+- sooplive.com domain support
+- CWS automated release
+
+### v1.1.0
+
+- List panel improvements, core engine hardening
+
+### v1.0.0
+
+- Initial release: SOOP radio mode
 
 ---
 
