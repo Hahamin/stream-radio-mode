@@ -327,6 +327,14 @@ Bug reports, feature requests, and PRs are welcome.
 - Stealth Mode and Minimize Mode
 - Global shortcuts (`Alt+Shift+R`, `Alt+Shift+B`)
 
+### v1.4.0
+
+- VOD Radio Board (playback controls)
+
+### v1.3.0
+
+- Radio mode stabilization, initial Speech EQ
+
 ### v1.2.0
 
 - sooplive.com domain support
