@@ -1,7 +1,6 @@
 /**
- * Stream Radio Mode — SOOP 채팅 붙여넣기 차단 해제
- * SOOP이 채팅 입력란의 paste 이벤트를 차단하므로,
- * document 캡처 단계에서 먼저 가로채서 클립보드 텍스트를 직접 삽입한다.
+ * Stream Radio Mode — SOOP 클립보드/선택/우클릭 차단 해제
+ * SOOP이 차단하는 이벤트들을 document 캡처 단계에서 먼저 가로채 정상 동작시킨다.
  * document_start에 등록되어 SOOP 페이지 스크립트보다 먼저 캡처 핸들러를 확보한다.
  */
 (() => {
@@ -37,6 +36,7 @@
     target.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: text }));
   }
 
+  // 붙여넣기 차단 해제
   document.addEventListener('paste', (e) => {
     const target = findEditableTarget(e.target);
     if (!target) return;
@@ -48,4 +48,26 @@
     e.preventDefault();
     insertText(target, text);
   }, true);
+
+  // 복사/잘라내기 차단 해제
+  for (const evt of ['copy', 'cut']) {
+    document.addEventListener(evt, (e) => {
+      e.stopImmediatePropagation();
+    }, true);
+  }
+
+  // 텍스트 선택 차단 해제
+  document.addEventListener('selectstart', (e) => {
+    e.stopImmediatePropagation();
+  }, true);
+
+  // 우클릭 메뉴 차단 해제
+  document.addEventListener('contextmenu', (e) => {
+    e.stopImmediatePropagation();
+  }, true);
+
+  // CSS user-select: none 강제 해제
+  const style = document.createElement('style');
+  style.textContent = '* { -webkit-user-select: text !important; user-select: text !important; }';
+  (document.head || document.documentElement).appendChild(style);
 })();
