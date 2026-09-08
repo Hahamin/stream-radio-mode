@@ -369,6 +369,11 @@ Global shortcuts work from any tab. You can rebind them at `chrome://extensions/
 
 That means a SOOP site change broke part of the extension. Open the popup to see which feature is affected. If a page refresh does not fix it, please open an issue.
 
+**Multiview tiles are blank or the volume sliders are disabled.**
+
+- Site access has not been granted yet. Click the **Grant permission** banner at the top or the **+ Add** button; the tiles reload once permission is granted.
+- Chzzk/SOOP sliders turn on after the audio bridge finds the video element inside the player, which happens automatically once an ad ends or the stream starts.
+
 **It stopped working after a SOOP update.**
 
 SOOP's real DOM and player APIs can change. Please open a [GitHub issue](https://github.com/Hahamin/stream-radio-mode/issues) with the URL, browser, and exact action that failed.

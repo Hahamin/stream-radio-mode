@@ -42,6 +42,8 @@ const mixerRows = $('mixerRows');
 const mixHover = $('mixHover');
 const mixSoloOff = $('mixSoloOff');
 const mixClose = $('mixClose');
+const permBanner = $('permBanner');
+const permGrantBtn = $('permGrantBtn');
 const browseBtn = $('browseBtn');
 const browsePanel = $('browsePanel');
 const browseSearch = $('browseSearch');
@@ -147,7 +149,7 @@ function chatUrl(s) {
     case 'chzzk':   return `https://chzzk.naver.com/live/${s.id}/chat`;
     case 'soop':    return `https://play.sooplive.com/${s.id}?vtype=chat`;
     case 'twitch':  return `https://www.twitch.tv/embed/${s.id}/chat?darkpopout&parent=${location.hostname}`;
-    case 'youtube': return `https://www.youtube.com/live_chat?v=${s.id}&embed_domain=www.youtube.com&dark_theme=1`;
+    case 'youtube': return `https://www.youtube.com/live_chat?v=${s.id}&embed_domain=github.com&dark_theme=1`;
   }
   return '';
 }
@@ -167,7 +169,7 @@ function esc(s) {
 // ═══════════════════════════════════════════════════════
 
 function addStream(desc) {
-  if (!desc) return false;
+  if (!desc || !desc.id) return false;
 
   // 중복 검사
   if (streams.some(s => s.platform === desc.platform && s.id === desc.id)) {
@@ -175,6 +177,9 @@ function addStream(desc) {
     setTimeout(() => streamInput.classList.remove('shake'), 400);
     return false;
   }
+
+  // 포커스 중엔 새 타일이 레이아웃되지 않으므로 포커스를 먼저 푼다
+  if (focusedUid !== null) toggleFocus(focusedUid);
 
   const uid = nextUid++;
   const s = { uid, platform: desc.platform, id: desc.id, name: desc.id };
@@ -224,6 +229,7 @@ function addStream(desc) {
   syncChatSelect();
   syncEmpty();
   syncHash();
+  syncPermBanner();
   resolveName(s);
   return true;
 }
@@ -236,7 +242,11 @@ function removeStream(uid) {
   const el = document.getElementById(`w-${uid}`);
   if (el) el.remove();
 
-  if (focusedUid === uid) focusedUid = null;
+  if (focusedUid === uid) {
+    focusedUid = null;
+    streamsEl.querySelectorAll('.stream-wrapper').forEach(w => { w.classList.remove('focused'); w.style.display = ''; });
+    Mixer.resumeTwitch();
+  }
   if (chatStreamIdx >= streams.length) chatStreamIdx = Math.max(0, streams.length - 1);
 
   relayout();
@@ -244,6 +254,7 @@ function removeStream(uid) {
   syncChat();
   syncEmpty();
   syncHash();
+  syncPermBanner();
 }
 
 function toggleFocus(uid) {
@@ -263,7 +274,10 @@ function toggleFocus(uid) {
     }
   });
 
-  if (focusedUid === null) relayout();
+  if (focusedUid === null) {
+    relayout();
+    Mixer.resumeTwitch();
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -453,7 +467,12 @@ function loadHash() {
   const segments = h.split('/').filter(Boolean);
   segments.forEach(seg => {
     const d = parseOne(seg);
-    if (d) addStream(d);
+    if (!d) return;
+    if (d.channel) {
+      resolveYoutubeLive(d.channel).then(id => { if (id) addStream({ platform: 'youtube', id }); });
+    } else {
+      addStream(d);
+    }
   });
 }
 
@@ -471,11 +490,23 @@ function syncEmpty() {
 // ═══════════════════════════════════════════════════════
 
 let layoutMenuEl = null;
+let layoutMenuCloser = null;
+
+function closeLayoutMenu() {
+  if (!layoutMenuEl) return;
+  layoutMenuEl.remove();
+  layoutMenuEl = null;
+  if (layoutMenuCloser) {
+    document.removeEventListener('click', layoutMenuCloser);
+    layoutMenuCloser = null;
+  }
+  // 메뉴가 우상단 트위치 타일을 덮고 있었을 수 있다
+  Mixer.resumeTwitch();
+}
 
 function toggleLayoutMenu() {
   if (layoutMenuEl) {
-    layoutMenuEl.remove();
-    layoutMenuEl = null;
+    closeLayoutMenu();
     return;
   }
 
@@ -500,8 +531,7 @@ function toggleLayoutMenu() {
         el.style.display = '';
       });
       relayout();
-      layoutMenuEl.remove();
-      layoutMenuEl = null;
+      closeLayoutMenu();
     });
     layoutMenuEl.appendChild(btn);
   });
@@ -510,14 +540,11 @@ function toggleLayoutMenu() {
 
   // 외부 클릭으로 닫기
   setTimeout(() => {
-    const closeHandler = (e) => {
-      if (layoutMenuEl && !layoutMenuEl.contains(e.target) && e.target !== layoutBtn) {
-        layoutMenuEl.remove();
-        layoutMenuEl = null;
-        document.removeEventListener('click', closeHandler);
-      }
+    if (!layoutMenuEl) return;
+    layoutMenuCloser = (e) => {
+      if (layoutMenuEl && !layoutMenuEl.contains(e.target) && e.target !== layoutBtn) closeLayoutMenu();
     };
-    document.addEventListener('click', closeHandler);
+    document.addEventListener('click', layoutMenuCloser);
   }, 0);
 }
 
@@ -579,17 +606,20 @@ async function resolveYoutubeLive(channel) {
   }
 }
 
+let submitting = false;
+
 async function handleSubmit() {
+  if (submitting) return;
   const descs = parseInput(streamInput.value);
   if (!descs.length) { shakeInput(); return; }
 
-  // 첫 추가 시 iframe 임베딩 권한 요청 (사용자 제스처 컨텍스트)
-  if (!permissionsGranted) {
-    await requestFramePermissions();
-  }
-
+  submitting = true;
   streamSubmit.disabled = true;
   try {
+    // 첫 추가 시 iframe 임베딩 권한 요청 (사용자 제스처 컨텍스트)
+    if (!permissionsGranted) {
+      await requestFramePermissions();
+    }
     for (const d of descs) {
       if (d.platform === 'youtube' && d.channel) {
         const id = await resolveYoutubeLive(d.channel);
@@ -600,6 +630,7 @@ async function handleSubmit() {
       }
     }
   } finally {
+    submitting = false;
     streamSubmit.disabled = false;
   }
   streamInput.value = '';
@@ -608,7 +639,7 @@ async function handleSubmit() {
 
 streamSubmit.addEventListener('click', handleSubmit);
 streamInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); }
+  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handleSubmit(); }
 });
 
 chatToggleBtn.addEventListener('click', () => setChat(!chatVisible));
@@ -633,15 +664,21 @@ window.addEventListener('resize', () => {
 
 // 키보드 단축키
 document.addEventListener('keydown', (e) => {
-  // 믹서 단축키 (입력 중이 아닐 때, 수정키 없이)
-  if (!isTypingTarget(e.target) && !e.ctrlKey && !e.altKey && !e.metaKey) {
-    if (/^[1-9]$/.test(e.key)) { Mixer.soloByIndex(Number(e.key) - 1); e.preventDefault(); return; }
-    if (e.key === '0') { Mixer.setSolo(null); e.preventDefault(); return; }
-    const k = e.key.toLowerCase();
-    if (k === 'm') { Mixer.toggleMuteAll(); e.preventDefault(); return; }
-    if (k === 'r') { Mixer.setRadioMode(!Mixer.state().radioMode); e.preventDefault(); return; }
-    if (k === 'h') { Mixer.setHoverFollow(!Mixer.state().hoverFollow); e.preventDefault(); return; }
-    if (k === 'x') { setMixerPanel(!mixerVisible); e.preventDefault(); return; }
+  // 믹서 단축키 (입력 중이 아닐 때, 수정키 없이). 한글 IME 상태에서도 동작하도록 e.code 로 판별
+  if (!isTypingTarget(e.target) && !e.ctrlKey && !e.altKey && !e.metaKey && !e.isComposing) {
+    const digit = /^Digit([0-9])$/.exec(e.code);
+    if (digit) {
+      const n = Number(digit[1]);
+      if (n === 0) Mixer.setSolo(null); else Mixer.soloByIndex(n - 1);
+      e.preventDefault();
+      return;
+    }
+    switch (e.code) {
+      case 'KeyM': Mixer.toggleMuteAll(); e.preventDefault(); return;
+      case 'KeyR': Mixer.setRadioMode(!Mixer.state().radioMode); e.preventDefault(); return;
+      case 'KeyH': Mixer.setHoverFollow(!Mixer.state().hoverFollow); e.preventDefault(); return;
+      case 'KeyX': setMixerPanel(!mixerVisible); e.preventDefault(); return;
+    }
   }
 
   // Ctrl+Enter: 추가 패널 열기/제출
@@ -659,8 +696,7 @@ document.addEventListener('keydown', (e) => {
   // Escape: 포커스 해제 / 패널 닫기
   if (e.key === 'Escape') {
     if (layoutMenuEl) {
-      layoutMenuEl.remove();
-      layoutMenuEl = null;
+      closeLayoutMenu();
     } else if (!addStreamPanel.hidden) {
       addStreamPanel.hidden = true;
     } else if (mixerVisible) {
@@ -897,7 +933,7 @@ browseSearch.addEventListener('input', () => {
 });
 
 browseSearch.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
+  if (e.key === 'Enter' && !e.isComposing) {
     clearTimeout(browseSearchTimer);
     loadBrowse();
   }
@@ -922,30 +958,39 @@ const FRAME_PERMISSIONS = {
     '*://www.youtube.com/*',
   ],
 };
-const FRAME_RULE_ID = 100;
-const YT_REFERER_RULE_ID = 101;
+const LEGACY_DYNAMIC_RULE_IDS = [100, 101];
+let sessionRuleIds = [];
 
 // 트위치는 parent 파라미터로 frame-ancestors https://<host> 를 내려보내는데
 // 확장 페이지 origin은 chrome-extension:// 이라 스킴이 달라 항상 차단되므로 헤더를 제거한다.
 // 유튜브는 Referer 없는 임베드를 오류 153, 자기 도메인 Referer는 152로 거부하는데
 // chrome-extension:// 페이지는 Referer를 아예 보내지 않으므로 이 확장의 공식 페이지를 Referer로 넣는다.
+// 규칙은 이 탭에만 적용되는 세션 규칙으로 등록해 다른 사이트의 임베드에는 영향을 주지 않는다.
 async function registerFrameRules() {
+  if (!chrome.declarativeNetRequest) return;
   try {
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: [FRAME_RULE_ID, YT_REFERER_RULE_ID],
+    // 이전 버전이 남긴 전역 동적 규칙 정리
+    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: LEGACY_DYNAMIC_RULE_IDS });
+
+    const tab = await chrome.tabs.getCurrent();
+    if (!tab?.id) return;
+
+    // 닫힌 탭의 규칙과 이 탭의 이전 규칙(새로고침 등)은 제거하고,
+    // 규칙 ID는 탭 ID와 무관하게 비어 있는 작은 번호를 쓴다 (탭 ID는 32비트 범위를 넘을 수 있음)
+    const openTabs = new Set((await chrome.tabs.query({})).map(t => t.id));
+    const existing = await chrome.declarativeNetRequest.getSessionRules();
+    const stale = existing
+      .filter(r => (r.condition.tabIds || []).every(id => id === tab.id || !openTabs.has(id)))
+      .map(r => r.id);
+    const used = new Set(existing.filter(r => !stale.includes(r.id)).map(r => r.id));
+    let base = 100;
+    while (used.has(base + 1) || used.has(base + 2)) base += 10;
+    sessionRuleIds = [base + 1, base + 2];
+
+    await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: stale,
       addRules: [{
-        id: YT_REFERER_RULE_ID,
-        priority: 1,
-        action: {
-          type: 'modifyHeaders',
-          requestHeaders: [{ header: 'Referer', operation: 'set', value: 'https://github.com/Hahamin/stream-radio-mode' }],
-        },
-        condition: {
-          resourceTypes: ['sub_frame'],
-          requestDomains: ['www.youtube.com'],
-        },
-      }, {
-        id: FRAME_RULE_ID,
+        id: base + 1,
         priority: 1,
         action: {
           type: 'modifyHeaders',
@@ -956,6 +1001,7 @@ async function registerFrameRules() {
         },
         condition: {
           resourceTypes: ['sub_frame'],
+          tabIds: [tab.id],
           requestDomains: [
             'chzzk.naver.com',
             'play.sooplive.com',
@@ -964,10 +1010,30 @@ async function registerFrameRules() {
             'www.twitch.tv',
           ],
         },
+      }, {
+        id: base + 2,
+        priority: 1,
+        action: {
+          type: 'modifyHeaders',
+          requestHeaders: [{ header: 'Referer', operation: 'set', value: 'https://github.com/Hahamin/stream-radio-mode' }],
+        },
+        condition: {
+          resourceTypes: ['sub_frame'],
+          tabIds: [tab.id],
+          requestDomains: ['www.youtube.com'],
+        },
       }],
     });
-  } catch { /* 권한 없으면 무시 */ }
+  } catch (err) {
+    console.warn('[multiview] 프레임 규칙 등록 실패:', err);
+  }
 }
+
+window.addEventListener('pagehide', () => {
+  if (sessionRuleIds.length && chrome.declarativeNetRequest) {
+    chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: sessionRuleIds }).catch(() => {});
+  }
+});
 
 // 치지직/숲 플레이어 프레임에 오디오 브리지 주입 (볼륨 제어용)
 const FRAME_BRIDGE_SCRIPT = {
@@ -994,6 +1060,12 @@ async function enableFrameFeatures() {
   permissionsGranted = true;
   await Promise.all([registerFrameRules(), registerFrameBridge()]);
   Mixer.pingFrames();
+  syncPermBanner();
+}
+
+// 권한 없이 해시로 열린 스트림은 임베드가 차단된 채 떠 있으므로 허용 버튼을 보여준다
+function syncPermBanner() {
+  permBanner.hidden = permissionsGranted || !streams.length;
 }
 
 async function checkExistingPermissions() {
@@ -1007,12 +1079,18 @@ async function requestFramePermissions() {
   if (permissionsGranted) return true;
   try {
     const granted = await chrome.permissions.request(FRAME_PERMISSIONS);
-    if (granted) await enableFrameFeatures();
+    if (granted) {
+      await enableFrameFeatures();
+      // 권한 전에 만들어진 iframe 은 헤더 규칙/브리지 없이 로드됐으므로 다시 불러온다
+      if (streams.length) Mixer.reloadAll();
+    }
     return granted;
   } catch {
     return false;
   }
 }
+
+permGrantBtn.addEventListener('click', requestFramePermissions);
 
 // ═══════════════════════════════════════════════════════
 //  초기화

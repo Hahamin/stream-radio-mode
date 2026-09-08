@@ -47,6 +47,15 @@ const Mixer = (() => {
       this.queue = [];
     }
     enqueue(fn) { if (this.ready) fn(); else this.queue.push(fn); }
+    // 플레이어에 실제로 보내는 시점을 기록해야, 준비 전 보고된 초기 상태를 사용자 변경으로 오인하지 않는다
+    dispatch(kind, fn, isRetry) {
+      this.enqueue(() => {
+        this.entry.sentAt[kind] = Date.now();
+        if (!isRetry) this.entry.retried[kind] = false;
+        fn();
+      });
+    }
+    adopt() {}
     markReady() {
       if (this.ready) return;
       this.ready = true;
@@ -64,8 +73,8 @@ const Mixer = (() => {
       const w = this.entry.iframe.contentWindow;
       if (w) w.postMessage({ eventName, params, namespace: TWITCH_NS }, '*');
     }
-    setVolume(v) { this.enqueue(() => this.post(TWITCH_CMD.SetVolume, v)); }
-    setMuted(b) { this.enqueue(() => this.post(TWITCH_CMD.SetMuted, !!b)); }
+    setVolume(v, isRetry) { this.dispatch('volume', () => this.post(TWITCH_CMD.SetVolume, v), isRetry); }
+    setMuted(b, isRetry) { this.dispatch('muted', () => this.post(TWITCH_CMD.SetMuted, !!b), isRetry); }
     play() { this.enqueue(() => this.post(TWITCH_CMD.Play, undefined)); }
     onMessage(e) {
       if (e.source !== this.entry.iframe.contentWindow) return;
@@ -106,12 +115,16 @@ const Mixer = (() => {
     startHandshake() {
       clearInterval(this.timer);
       this.ready = false;
+      const started = Date.now();
       this.send({ event: 'listening' });
-      this.timer = setInterval(() => this.send({ event: 'listening' }), 250);
+      this.timer = setInterval(() => {
+        if (Date.now() - started > 60000) { clearInterval(this.timer); return; }
+        this.send({ event: 'listening' });
+      }, 250);
     }
     command(func, args = []) { this.enqueue(() => this.send({ event: 'command', func, args })); }
-    setVolume(v) { this.command('setVolume', [Math.round(v * 100)]); }
-    setMuted(b) { this.command(b ? 'mute' : 'unMute'); }
+    setVolume(v, isRetry) { this.dispatch('volume', () => this.send({ event: 'command', func: 'setVolume', args: [Math.round(v * 100)] }), isRetry); }
+    setMuted(b, isRetry) { this.dispatch('muted', () => this.send({ event: 'command', func: b ? 'mute' : 'unMute', args: [] }), isRetry); }
     play() { this.command('playVideo'); }
     onMessage(e) {
       if (e.origin !== YT_ORIGIN || e.source !== this.entry.iframe.contentWindow || typeof e.data !== 'string') return;
@@ -158,9 +171,11 @@ const Mixer = (() => {
         if (st && st.hasVideo) this.report(pickState(st));
       } catch { /* 프레임이 사라짐 */ }
     }
-    setVolume(v) { this.enqueue(() => this.cmd('setVolume', v)); }
-    setMuted(b) { this.enqueue(() => this.cmd('setMuted', !!b)); }
+    setVolume(v, isRetry) { this.dispatch('volume', () => this.cmd('setVolume', v), isRetry); }
+    setMuted(b, isRetry) { this.dispatch('muted', () => this.cmd('setMuted', !!b), isRetry); }
     play() { this.enqueue(() => this.cmd('play')); }
+    // 플레이어 UI에서 바꾼 값을 채택했을 때 브리지의 desired 도 맞춰야 다음 재생 시 되돌리지 않는다
+    adopt(kind, value) { this.enqueue(() => this.cmd(kind === 'volume' ? 'setVolume' : 'setMuted', value)); }
   }
 
   function pickState(st) {
@@ -196,16 +211,15 @@ const Mixer = (() => {
     const e = entries.get(uid);
     if (!e) return;
     const eff = effective(e);
+    // sentAt 은 어댑터가 실제로 보낼 때 찍힌다. 0 은 '아직 전송 전' 표시
     if (e.sent.volume === null || Math.abs(e.sent.volume - eff.volume) > 0.001) {
       e.sent.volume = eff.volume;
-      e.sentAt.volume = Date.now();
-      e.retried.volume = false;
+      e.sentAt.volume = 0;
       e.adapter.setVolume(eff.volume);
     }
     if (e.sent.muted !== eff.muted) {
       e.sent.muted = eff.muted;
-      e.sentAt.muted = Date.now();
-      e.retried.muted = false;
+      e.sentAt.muted = 0;
       e.adapter.setMuted(eff.muted);
     }
     notify(uid);
@@ -218,6 +232,7 @@ const Mixer = (() => {
 
   function resend(entry) {
     entry.sent = { volume: null, muted: null };
+    entry.sentAt = { volume: 0, muted: 0 };
     apply(entry.uid);
   }
 
@@ -229,12 +244,15 @@ const Mixer = (() => {
       entry.actual.volume = partial.volume;
       const target = entry.sent.volume;
       if (target !== null && Math.abs(partial.volume - target) > 0.01) {
-        if (now - entry.sentAt.volume < CONFIRM_GRACE_MS) {
-          if (!entry.retried.volume) { entry.retried.volume = true; entry.adapter.setVolume(target); }
+        if (!entry.sentAt.volume) {
+          // 아직 전송 전 — 플레이어의 초기 상태 보고일 뿐
+        } else if (now - entry.sentAt.volume < CONFIRM_GRACE_MS) {
+          if (!entry.retried.volume) { entry.retried.volume = true; entry.adapter.setVolume(target, true); }
         } else {
           // 플레이어 자체 UI에서 바꾼 값 → 채택
           entry.base = partial.volume;
           entry.sent.volume = partial.volume;
+          entry.adapter.adopt('volume', partial.volume);
           persistVolume(entry);
         }
       }
@@ -244,15 +262,18 @@ const Mixer = (() => {
       entry.actual.muted = partial.muted;
       const target = entry.sent.muted;
       if (target !== null && partial.muted !== target) {
-        if (now - entry.sentAt.muted < CONFIRM_GRACE_MS) {
-          if (!entry.retried.muted) { entry.retried.muted = true; entry.adapter.setMuted(target); }
+        if (!entry.sentAt.muted) {
+          // 전송 전 초기 상태
+        } else if (now - entry.sentAt.muted < CONFIRM_GRACE_MS) {
+          if (!entry.retried.muted) { entry.retried.muted = true; entry.adapter.setMuted(target, true); }
         } else if (partial.muted && !target) {
           // 소리 켜기를 요청했지만 계속 음소거 → 자동재생 정책에 막힌 상태
-          if (userActivated) { entry.muted = true; entry.sent.muted = true; }
+          if (userActivated) { entry.muted = true; entry.sent.muted = true; entry.adapter.adopt('muted', true); }
           else entry.blocked = true;
         } else {
           entry.muted = false;
           entry.sent.muted = false;
+          entry.adapter.adopt('muted', false);
           reapply = true;
         }
       } else if (!partial.muted) {
@@ -487,6 +508,12 @@ const Mixer = (() => {
       });
     } catch { /* 비-확장 환경 */ }
 
+    // 타일 밖(툴바·패널·타일 사이 틈)으로 포인터가 나오면 호버 해제
+    document.addEventListener('pointerover', (e) => {
+      const t = e.target;
+      if (!(t instanceof Element) || !t.closest('.stream-wrapper')) clearHover();
+    }, true);
+
     document.addEventListener('pointerdown', () => {
       if (userActivated) return;
       userActivated = true;
@@ -524,12 +551,22 @@ const Mixer = (() => {
       adapter: null,
       tile: null,
       row: null,
+      sensor: null,
     };
     entry.adapter = createAdapter(entry);
     entries.set(stream.uid, entry);
 
-    wrapper.addEventListener('pointerenter', () => setHover(stream.uid));
-    wrapper.addEventListener('pointerleave', () => { if (hoverUid === stream.uid) setHover(null); });
+    // 크로스오리진 iframe 위에서는 부모 문서가 마우스 이벤트를 받지 못하고 :hover 도 매치되지 않으므로
+    // 투명 센서로 진입을 잡고, 진입 후엔 센서를 투과시켜 플레이어 조작을 허용한다.
+    // 이탈은 문서의 다른 곳에서 pointerover 가 오는 것으로 감지한다 (init 참고).
+    // 트위치는 센서가 가림으로 잡혀 정지하므로 컨트롤 띠 진입으로만 감지한다.
+    if (stream.platform !== 'twitch') {
+      const sensor = el('div', 'hover-sensor');
+      sensor.addEventListener('pointerenter', () => hoverTile(stream.uid));
+      wrapper.appendChild(sensor);
+      entry.sensor = sensor;
+    }
+    wrapper.addEventListener('pointerenter', () => hoverTile(stream.uid));
 
     buildTile(entry, wrapper);
     rebuildPanel();
@@ -542,6 +579,7 @@ const Mixer = (() => {
     if (!e) return;
     e.adapter.dispose();
     entries.delete(uid);
+    frameIndex.delete(keyOf(e.stream));
     if (soloUid === uid) soloUid = null;
     if (hoverUid === uid) hoverUid = null;
     rebuildPanel();
@@ -597,6 +635,25 @@ const Mixer = (() => {
     if (settings.hoverFollow) applyAll();
   }
 
+  function hoverTile(uid) {
+    if (hoverUid === uid) return;
+    for (const e of entries.values()) {
+      const on = e.uid === uid;
+      if (e.tile) e.tile.wrapper.classList.toggle('hovered', on);
+      if (e.sensor) e.sensor.classList.toggle('passthrough', on);
+    }
+    setHover(uid);
+  }
+
+  function clearHover() {
+    if (hoverUid === null) return;
+    for (const e of entries.values()) {
+      if (e.tile) e.tile.wrapper.classList.remove('hovered');
+      if (e.sensor) e.sensor.classList.remove('passthrough');
+    }
+    setHover(null);
+  }
+
   function setMuteAll(b) {
     allMuted = !!b;
     applyAll();
@@ -610,17 +667,31 @@ const Mixer = (() => {
     applyAll();
   }
 
-  function setRadioMode(b) {
-    settings.radioMode = !!b;
-    document.body.classList.toggle('radio-mode', settings.radioMode);
-    save();
-    notify(null);
-    // 트위치는 레이아웃 전환 중 가려졌다고 판단해 멈출 수 있으므로 재생을 한 번 찔러준다
+  // 트위치는 가려지거나 숨겨졌다 나타나면 정지한 채 스스로 재개하지 않으므로 레이아웃 전환 뒤 한 번 찔러준다
+  function resumeTwitch() {
     setTimeout(() => {
       for (const e of entries.values()) {
         if (e.stream.platform === 'twitch' && e.actual.paused) e.adapter.play();
       }
     }, 800);
+  }
+
+  function setRadioMode(b) {
+    settings.radioMode = !!b;
+    document.body.classList.toggle('radio-mode', settings.radioMode);
+    save();
+    notify(null);
+    resumeTwitch();
+  }
+
+  // 권한을 뒤늦게 받은 경우 등 iframe 을 처음부터 다시 불러오고 원하는 상태를 재적용한다
+  function reloadAll() {
+    for (const e of entries.values()) {
+      e.adapter.ready = false;
+      e.actual = { volume: null, muted: null, paused: null };
+      e.iframe.src = e.iframe.src;
+      resend(e);
+    }
   }
 
   function state() {
@@ -641,6 +712,7 @@ const Mixer = (() => {
   return {
     init, attach, detach, initialMuted, updateName, renderPanel,
     setVolume, setMuted, toggleMute, setSolo, toggleSolo, soloByIndex, setHover,
-    setMuteAll, toggleMuteAll, setHoverFollow, setRadioMode, state, onChange, pingFrames, debug,
+    setMuteAll, toggleMuteAll, setHoverFollow, setRadioMode, resumeTwitch, reloadAll,
+    state, onChange, pingFrames, debug,
   };
 })();

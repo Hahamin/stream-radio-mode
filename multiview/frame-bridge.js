@@ -9,6 +9,8 @@
 
 (() => {
   if (window.top === window.self) return;
+  // 확장 페이지가 부모면 Referer 가 없다. 일반 웹사이트가 임베드한 프레임(Referer 있음)에는 관여하지 않는다
+  if (document.referrer) return;
   if (window.__srmFrameBridge) return;
   window.__srmFrameBridge = true;
 
@@ -95,6 +97,12 @@
     }
   }
 
+  // 채팅 프레임 등 같은 경로를 쓰는 다른 프레임이 플레이어 자리를 가로채지 않도록
+  // <video> 를 잡은 프레임만 자신을 알린다
+  function announce() {
+    if (video) send({ type: 'mv-frame-ready' });
+  }
+
   function bind(v) {
     if (video === v) return;
     if (video) {
@@ -104,14 +112,21 @@
     for (const ev of VIDEO_EVENTS) v.addEventListener(ev, onVideoEvent);
     applyDesired();
     fitChzzkPlayer();
-    send(state());
+    announce();
   }
 
   const VIDEO_EVENTS = ['volumechange', 'play', 'pause', 'playing', 'loadedmetadata'];
 
+  // 광고/프리뷰용 video 를 먼저 잡았다가 본 플레이어가 뜨면 갈아타야 하므로 계속 재탐색하되,
+  // 채팅처럼 끊임없이 바뀌는 DOM 에서 과하게 돌지 않도록 500ms 로 묶는다
+  let rescanTimer = null;
   const observer = new MutationObserver(() => {
-    const v = findVideo();
-    if (v && v !== video) bind(v);
+    if (rescanTimer) return;
+    rescanTimer = setTimeout(() => {
+      rescanTimer = null;
+      const v = findVideo();
+      if (v && v !== video) bind(v);
+    }, 500);
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
@@ -122,7 +137,7 @@
     if (!msg || typeof msg !== 'object') return;
 
     if (msg.type === 'mv-ping') {
-      send({ type: 'mv-frame-ready' });
+      announce();
       return;
     }
     if (msg.type !== 'mv-cmd') return;
@@ -145,6 +160,4 @@
     }
     sendResponse(state());
   });
-
-  send({ type: 'mv-frame-ready' });
 })();

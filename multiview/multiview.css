@@ -113,6 +113,21 @@ body {
 .hint-tag.twitch  { background: rgba(145,70,255,0.12); color: #9146ff; }
 .hint-tag.youtube { background: rgba(255,68,68,0.12);  color: #ff5555; }
 
+/* ── Permission banner ── */
+#permBanner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 8px 12px;
+  background: rgba(250,204,21,0.08);
+  border-bottom: 1px solid rgba(250,204,21,0.25);
+  color: #fde68a;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+#permBanner .primary-btn { padding: 6px 16px; font-size: 13px; }
+
 /* ── Main area ── */
 #main {
   flex: 1;
@@ -124,6 +139,7 @@ body {
 
 #streams {
   flex: 1;
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-content: center;
@@ -169,7 +185,17 @@ body {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.stream-wrapper:hover .stream-label { opacity: 1; }
+.stream-wrapper:hover .stream-label,
+.stream-wrapper.hovered .stream-label { opacity: 1; }
+
+/* iframe 위 마우스 진입 감지용 투명 센서 (진입 후 투과) */
+.hover-sensor {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: transparent;
+}
+.hover-sensor.passthrough { pointer-events: none; }
 
 .pdot {
   width: 8px; height: 8px;
@@ -193,7 +219,8 @@ body {
   transition: opacity 0.15s, background 0.15s;
   backdrop-filter: blur(4px);
 }
-.stream-wrapper:hover .stream-close { opacity: 1; }
+.stream-wrapper:hover .stream-close,
+.stream-wrapper.hovered .stream-close { opacity: 1; }
 .stream-close:hover { background: rgba(220,38,38,1); }
 
 .stream-focus {
@@ -212,7 +239,8 @@ body {
   transition: opacity 0.15s, background 0.15s;
   backdrop-filter: blur(4px);
 }
-.stream-wrapper:hover .stream-focus { opacity: 1; }
+.stream-wrapper:hover .stream-focus,
+.stream-wrapper.hovered .stream-focus { opacity: 1; }
 .stream-focus:hover { background: rgba(255,255,255,0.3); }
 
 /* Focused stream (enlarged) */
@@ -537,6 +565,7 @@ body {
   transition: opacity 0.15s;
 }
 .stream-wrapper:hover .tile-audio,
+.stream-wrapper.hovered .tile-audio,
 .stream-wrapper.focused .tile-audio,
 body.radio-mode .tile-audio { opacity: 1; }
 
@@ -680,7 +709,13 @@ body.radio-mode .stream-wrapper.solo .stream-cover {
 .stream-wrapper[data-platform="twitch"] .stream-close { top: auto; bottom: 7px; right: 6px; }
 .stream-wrapper[data-platform="twitch"] .stream-focus { bottom: 7px; right: 38px; }
 .stream-wrapper[data-platform="twitch"] .tile-muted-badge { display: none; }
-.stream-wrapper[data-platform="twitch"] .tile-blocked { top: auto; bottom: 52px; transform: translateX(-50%); }
+.stream-wrapper[data-platform="twitch"] .tile-blocked {
+  top: auto; bottom: 4px; left: 46%;
+  transform: none;
+  height: 32px; line-height: 32px;
+  padding: 0 10px;
+  font-size: 11px;
+}
 
 /* 라디오 모드의 트위치는 커버 위에 작은 미리보기로 남긴다 */
 body.radio-mode .stream-wrapper[data-platform="twitch"] .stream-frame {
