@@ -14,7 +14,9 @@
     </div>
     <div class="toolbar-right">
       <button id="layoutBtn" class="toolbar-btn" title="레이아웃 변경">⊞ 레이아웃</button>
-      <button id="muteAllBtn" class="toolbar-btn" title="전체 음소거">🔇 전체 음소거</button>
+      <button id="radioBtn" class="toolbar-btn" title="멀티 라디오 — 영상 가리고 소리만 (R)">🎧 라디오</button>
+      <button id="mixerBtn" class="toolbar-btn" title="오디오 믹서 패널 (X)">🎚 믹서</button>
+      <button id="muteAllBtn" class="toolbar-btn" title="전체 음소거 (M)">🔇 전체 음소거</button>
       <button id="chatToggleBtn" class="toolbar-btn" title="채팅 패널 토글">💬 채팅</button>
     </div>
   </div>
@@ -31,7 +33,7 @@
       <span class="hint-tag chzzk">치지직</span> 채널URL / 32자 ID &nbsp;·&nbsp;
       <span class="hint-tag soop">숲</span> 방송URL / BJ ID &nbsp;·&nbsp;
       <span class="hint-tag twitch">트위치</span> t:사용자명 &nbsp;·&nbsp;
-      <span class="hint-tag youtube">유튜브</span> y:영상ID
+      <span class="hint-tag youtube">유튜브</span> y:영상ID / youtube.com/@채널/live
     </div>
   </div>
 
@@ -60,6 +62,19 @@
     </div>
   </div>
 
+  <div id="mixerPanel" hidden>
+    <div class="mixer-head">
+      <span class="mixer-title">🎚 오디오 믹서</span>
+      <label class="mixer-opt" title="마우스를 올린 스트림만 소리가 납니다 (H)">
+        <input type="checkbox" id="mixHover"> 호버 팔로우
+      </label>
+      <button id="mixSoloOff" class="mixer-btn" title="솔로 해제 (0)">솔로 해제</button>
+      <span class="mixer-hint">1~9 솔로 · 0 해제 · M 전체 음소거 · R 라디오 · H 호버</span>
+      <button id="mixClose" class="mixer-btn" title="닫기">✕</button>
+    </div>
+    <div id="mixerRows"></div>
+  </div>
+
   <div id="emptyState">
     <div class="empty-icon">📺</div>
     <h2>스트림을 추가하세요</h2>
@@ -84,6 +99,7 @@
     </div>
   </div>
 
+  <script src="audio-mixer.js"></script>
   <script src="multiview.js"></script>
 </body>
 </html>

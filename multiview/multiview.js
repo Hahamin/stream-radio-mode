@@ -35,6 +35,13 @@ const chatFrame = $('chatFrame');
 const emptyState = $('emptyState');
 const layoutBtn = $('layoutBtn');
 const muteAllBtn = $('muteAllBtn');
+const mixerBtn = $('mixerBtn');
+const radioBtn = $('radioBtn');
+const mixerPanel = $('mixerPanel');
+const mixerRows = $('mixerRows');
+const mixHover = $('mixHover');
+const mixSoloOff = $('mixSoloOff');
+const mixClose = $('mixClose');
 const browseBtn = $('browseBtn');
 const browsePanel = $('browsePanel');
 const browseSearch = $('browseSearch');
@@ -81,8 +88,14 @@ function parseOne(input) {
   m = input.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
   if (m) return { platform: 'youtube', id: m[1] };
 
-  // y: 접두사 → 유튜브
-  m = input.match(/^y:(.+)$/i);
+  // 유튜브 채널 URL (@handle / channel/UC… / c/name) → 현재 라이브 영상 ID는 추가 시 해석
+  m = input.match(/youtube\.com\/(@[a-zA-Z0-9_.-]{3,30}|channel\/UC[a-zA-Z0-9_-]{22}|c\/[a-zA-Z0-9_-]+)(?:\/live)?\/?(?:[?#].*)?$/i);
+  if (m) return { platform: 'youtube', channel: m[1] };
+  m = input.match(/^y:(@[a-zA-Z0-9_.-]{3,30})$/i);
+  if (m) return { platform: 'youtube', channel: m[1] };
+
+  // y: 접두사 → 유튜브 영상 ID
+  m = input.match(/^y:([a-zA-Z0-9_-]{11})$/i);
   if (m) return { platform: 'youtube', id: m[1] };
 
   // s: 접두사 → 숲 (명시적)
@@ -124,7 +137,7 @@ function playerUrl(s) {
     case 'chzzk':   return `https://chzzk.naver.com/live/${s.id}`;
     case 'soop':    return `https://play.sooplive.com/${s.id}/direct?fromApi=1`;
     case 'twitch':  return `https://player.twitch.tv/?channel=${s.id}&parent=${location.hostname}`;
-    case 'youtube': return `https://www.youtube.com/embed/${s.id}?autoplay=1&rel=0`;
+    case 'youtube': return `https://www.youtube.com/embed/${s.id}?autoplay=1&rel=0&enablejsapi=1`;
   }
   return '';
 }
@@ -134,7 +147,7 @@ function chatUrl(s) {
     case 'chzzk':   return `https://chzzk.naver.com/live/${s.id}/chat`;
     case 'soop':    return `https://play.sooplive.com/${s.id}?vtype=chat`;
     case 'twitch':  return `https://www.twitch.tv/embed/${s.id}/chat?darkpopout&parent=${location.hostname}`;
-    case 'youtube': return `https://www.youtube.com/live_chat?v=${s.id}&embed_domain=${location.hostname}&dark_theme=1`;
+    case 'youtube': return `https://www.youtube.com/live_chat?v=${s.id}&embed_domain=www.youtube.com&dark_theme=1`;
   }
   return '';
 }
@@ -171,6 +184,7 @@ function addStream(desc) {
   wrap.className = 'stream-wrapper';
   wrap.id = `w-${uid}`;
   wrap.dataset.uid = uid;
+  wrap.dataset.platform = s.platform;
 
   const label = document.createElement('div');
   label.className = 'stream-label';
@@ -204,6 +218,7 @@ function addStream(desc) {
   wrap.appendChild(focusBtn);
   wrap.appendChild(iframe);
   streamsEl.appendChild(wrap);
+  Mixer.attach(s, iframe, wrap);
 
   relayout();
   syncChatSelect();
@@ -217,6 +232,7 @@ function removeStream(uid) {
   const idx = streams.findIndex(s => s.uid === uid);
   if (idx < 0) return;
   streams.splice(idx, 1);
+  Mixer.detach(uid);
   const el = document.getElementById(`w-${uid}`);
   if (el) el.remove();
 
@@ -254,14 +270,22 @@ function toggleFocus(uid) {
 //  이름 해석
 // ═══════════════════════════════════════════════════════
 
+function setStreamName(s, name) {
+  if (!name || s.name === name) return;
+  s.name = name;
+  const el = document.getElementById(`n-${s.uid}`);
+  if (el) el.textContent = name;
+  Mixer.updateName(s.uid);
+  syncChatSelect();
+}
+
 async function resolveName(s) {
   try {
     if (s.platform === 'chzzk') {
       const r = await fetch(`https://api.chzzk.naver.com/service/v1/channels/${s.id}`);
       if (r.ok) {
         const d = await r.json();
-        const name = d?.content?.channelName;
-        if (name) s.name = name;
+        setStreamName(s, d?.content?.channelName);
       }
     }
     // 숲: PupdateBroadInfo postMessage 로 해결
@@ -269,9 +293,6 @@ async function resolveName(s) {
   } catch {
     // CORS 등 에러 시 ID 유지
   }
-  const el = document.getElementById(`n-${s.uid}`);
-  if (el) el.textContent = s.name;
-  syncChatSelect();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -380,8 +401,11 @@ function syncChatSelect() {
 //  SOOP postMessage 프로토콜 (PonReady / Pload)
 // ═══════════════════════════════════════════════════════
 
+// 숲 플레이어는 { cmd, ... } 객체를 주고받는다. 플레이어 쪽 핸들러가 this[cmd]() 로 분기하므로
+// 부모가 호출할 수 있는 명령은 Pload / Pplay / Ppause / PtoggleChat / PsetDarkMode 뿐이다.
 window.addEventListener('message', (e) => {
-  if (typeof e.data !== 'string') return;
+  const d = e.data;
+  if (!d || typeof d !== 'object' || typeof d.cmd !== 'string') return;
 
   const s = streams.find(st => {
     const fr = document.getElementById(`f-${st.uid}`);
@@ -389,32 +413,22 @@ window.addEventListener('message', (e) => {
   });
   if (!s || s.platform !== 'soop') return;
 
-  // 플레이어 준비 완료 → 설정 전송
-  if (e.data === 'PonReady') {
-    e.source.postMessage(JSON.stringify({
-      id: s.id,
-      mutePlay: streams.indexOf(s) > 0, // 첫 번째만 소리
-      showChat: false,
-      autoPlay: true,
-      isAdShow: true,
-      showQualityBox: true,
-      fromApi: '1',
-    }), '*');
-    return;
-  }
-
-  // 방송 정보 업데이트
-  if (e.data.startsWith('PupdateBroadInfo')) {
-    try {
-      const info = JSON.parse(e.data.slice('PupdateBroadInfo'.length));
-      if (info.BJNICK) {
-        s.name = info.BJNICK;
-        const el = document.getElementById(`n-${s.uid}`);
-        if (el) el.textContent = s.name;
-        syncChatSelect();
-      }
-    } catch { /* 파싱 실패 무시 */ }
-    return;
+  switch (d.cmd) {
+    case 'PonReady':
+      e.source.postMessage({
+        cmd: 'Pload',
+        id: s.id,
+        mutePlay: Mixer.initialMuted(s.uid),
+        showChat: false,
+        autoPlay: true,
+        isAdShow: true,
+        showQualityBox: true,
+        fromApi: '1',
+      }, e.origin);
+      break;
+    case 'PupdateBroadInfo':
+      setStreamName(s, d.data?.nick);
+      break;
   }
 });
 
@@ -508,28 +522,29 @@ function toggleLayoutMenu() {
 }
 
 // ═══════════════════════════════════════════════════════
-//  전체 음소거
+//  오디오 믹서 연동 (툴바 / 패널)
 // ═══════════════════════════════════════════════════════
 
-let allMuted = false;
+let mixerVisible = false;
 
-function toggleMuteAll() {
-  allMuted = !allMuted;
-  muteAllBtn.classList.toggle('active', allMuted);
-  muteAllBtn.textContent = allMuted ? '🔊 음소거 해제' : '🔇 전체 음소거';
+function setMixerPanel(visible) {
+  mixerVisible = visible;
+  mixerPanel.hidden = !visible;
+  mixerBtn.classList.toggle('active', visible);
+  relayout();
+}
 
-  // iframe 내부 mute는 직접 제어 불가 (cross-origin)
-  // 대신 각 iframe에 postMessage로 시도
-  streams.forEach(s => {
-    const fr = document.getElementById(`f-${s.uid}`);
-    if (!fr) return;
-    // SOOP: Pmute 메시지 (시도)
-    if (s.platform === 'soop') {
-      try {
-        fr.contentWindow.postMessage(allMuted ? 'Pmute' : 'Punmute', '*');
-      } catch { /* cross-origin */ }
-    }
-  });
+function syncMixerToolbar() {
+  const st = Mixer.state();
+  muteAllBtn.classList.toggle('active', st.allMuted);
+  muteAllBtn.textContent = st.allMuted ? '🔊 음소거 해제' : '🔇 전체 음소거';
+  radioBtn.classList.toggle('active', st.radioMode);
+  mixHover.checked = st.hoverFollow;
+  mixSoloOff.disabled = st.soloUid === null;
+}
+
+function isTypingTarget(t) {
+  return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -546,20 +561,47 @@ addPanelClose.addEventListener('click', () => {
   addStreamPanel.hidden = true;
 });
 
+function shakeInput() {
+  streamInput.classList.add('shake');
+  setTimeout(() => streamInput.classList.remove('shake'), 400);
+}
+
+// 채널 페이지의 /live 는 현재 라이브 영상으로 리다이렉트되고 canonical 링크에 영상 ID가 담긴다
+async function resolveYoutubeLive(channel) {
+  try {
+    const r = await fetch(`https://www.youtube.com/${channel}/live`);
+    if (!r.ok) return null;
+    const html = await r.text();
+    const m = html.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})"/);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
 async function handleSubmit() {
   const descs = parseInput(streamInput.value);
-  if (!descs.length) {
-    streamInput.classList.add('shake');
-    setTimeout(() => streamInput.classList.remove('shake'), 400);
-    return;
-  }
+  if (!descs.length) { shakeInput(); return; }
 
   // 첫 추가 시 iframe 임베딩 권한 요청 (사용자 제스처 컨텍스트)
   if (!permissionsGranted) {
     await requestFramePermissions();
   }
 
-  descs.forEach(d => addStream(d));
+  streamSubmit.disabled = true;
+  try {
+    for (const d of descs) {
+      if (d.platform === 'youtube' && d.channel) {
+        const id = await resolveYoutubeLive(d.channel);
+        if (!id) { shakeInput(); continue; }
+        addStream({ platform: 'youtube', id });
+      } else {
+        addStream(d);
+      }
+    }
+  } finally {
+    streamSubmit.disabled = false;
+  }
   streamInput.value = '';
   streamInput.focus();
 }
@@ -577,7 +619,13 @@ chatSelect.addEventListener('change', () => {
 });
 
 layoutBtn.addEventListener('click', toggleLayoutMenu);
-muteAllBtn.addEventListener('click', toggleMuteAll);
+muteAllBtn.addEventListener('click', () => Mixer.toggleMuteAll());
+radioBtn.addEventListener('click', () => Mixer.setRadioMode(!Mixer.state().radioMode));
+mixerBtn.addEventListener('click', () => setMixerPanel(!mixerVisible));
+mixClose.addEventListener('click', () => setMixerPanel(false));
+mixSoloOff.addEventListener('click', () => Mixer.setSolo(null));
+mixHover.addEventListener('change', () => Mixer.setHoverFollow(mixHover.checked));
+Mixer.onChange(syncMixerToolbar);
 
 window.addEventListener('resize', () => {
   relayout();
@@ -585,6 +633,17 @@ window.addEventListener('resize', () => {
 
 // 키보드 단축키
 document.addEventListener('keydown', (e) => {
+  // 믹서 단축키 (입력 중이 아닐 때, 수정키 없이)
+  if (!isTypingTarget(e.target) && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    if (/^[1-9]$/.test(e.key)) { Mixer.soloByIndex(Number(e.key) - 1); e.preventDefault(); return; }
+    if (e.key === '0') { Mixer.setSolo(null); e.preventDefault(); return; }
+    const k = e.key.toLowerCase();
+    if (k === 'm') { Mixer.toggleMuteAll(); e.preventDefault(); return; }
+    if (k === 'r') { Mixer.setRadioMode(!Mixer.state().radioMode); e.preventDefault(); return; }
+    if (k === 'h') { Mixer.setHoverFollow(!Mixer.state().hoverFollow); e.preventDefault(); return; }
+    if (k === 'x') { setMixerPanel(!mixerVisible); e.preventDefault(); return; }
+  }
+
   // Ctrl+Enter: 추가 패널 열기/제출
   if (e.ctrlKey && e.key === 'Enter') {
     if (addStreamPanel.hidden) {
@@ -604,6 +663,8 @@ document.addEventListener('keydown', (e) => {
       layoutMenuEl = null;
     } else if (!addStreamPanel.hidden) {
       addStreamPanel.hidden = true;
+    } else if (mixerVisible) {
+      setMixerPanel(false);
     } else if (focusedUid !== null) {
       toggleFocus(focusedUid);
     }
@@ -848,7 +909,7 @@ browseSearch.addEventListener('keydown', (e) => {
 // ═══════════════════════════════════════════════════════
 
 const FRAME_PERMISSIONS = {
-  permissions: ['declarativeNetRequest'],
+  permissions: ['declarativeNetRequest', 'scripting'],
   origins: [
     '*://api.chzzk.naver.com/*',
     '*://chzzk.naver.com/*',
@@ -856,17 +917,34 @@ const FRAME_PERMISSIONS = {
     '*://play.sooplive.co.kr/*',
     '*://live.sooplive.co.kr/*',
     '*://sch.sooplive.co.kr/*',
+    '*://player.twitch.tv/*',
+    '*://www.twitch.tv/*',
+    '*://www.youtube.com/*',
   ],
 };
 const FRAME_RULE_ID = 100;
+const YT_REFERER_RULE_ID = 101;
 
+// 트위치는 parent 파라미터로 frame-ancestors https://<host> 를 내려보내는데
+// 확장 페이지 origin은 chrome-extension:// 이라 스킴이 달라 항상 차단되므로 헤더를 제거한다.
+// 유튜브는 Referer 없는 임베드를 오류 153, 자기 도메인 Referer는 152로 거부하는데
+// chrome-extension:// 페이지는 Referer를 아예 보내지 않으므로 이 확장의 공식 페이지를 Referer로 넣는다.
 async function registerFrameRules() {
   try {
-    const existing = await chrome.declarativeNetRequest.getDynamicRules();
-    if (existing.some(r => r.id === FRAME_RULE_ID)) return;
-
     await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [FRAME_RULE_ID, YT_REFERER_RULE_ID],
       addRules: [{
+        id: YT_REFERER_RULE_ID,
+        priority: 1,
+        action: {
+          type: 'modifyHeaders',
+          requestHeaders: [{ header: 'Referer', operation: 'set', value: 'https://github.com/Hahamin/stream-radio-mode' }],
+        },
+        condition: {
+          resourceTypes: ['sub_frame'],
+          requestDomains: ['www.youtube.com'],
+        },
+      }, {
         id: FRAME_RULE_ID,
         priority: 1,
         action: {
@@ -882,6 +960,8 @@ async function registerFrameRules() {
             'chzzk.naver.com',
             'play.sooplive.com',
             'play.sooplive.co.kr',
+            'player.twitch.tv',
+            'www.twitch.tv',
           ],
         },
       }],
@@ -889,13 +969,37 @@ async function registerFrameRules() {
   } catch { /* 권한 없으면 무시 */ }
 }
 
+// 치지직/숲 플레이어 프레임에 오디오 브리지 주입 (볼륨 제어용)
+const FRAME_BRIDGE_SCRIPT = {
+  id: 'mv-frame-bridge',
+  js: ['multiview/frame-bridge.js'],
+  matches: ['*://chzzk.naver.com/*', '*://play.sooplive.com/*', '*://play.sooplive.co.kr/*'],
+  allFrames: true,
+  runAt: 'document_idle',
+  persistAcrossSessions: true,
+};
+
+async function registerFrameBridge() {
+  if (!chrome.scripting?.registerContentScripts) return;
+  try {
+    const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [FRAME_BRIDGE_SCRIPT.id] });
+    if (existing.length) await chrome.scripting.updateContentScripts([FRAME_BRIDGE_SCRIPT]);
+    else await chrome.scripting.registerContentScripts([FRAME_BRIDGE_SCRIPT]);
+  } catch (err) {
+    console.warn('[multiview] 프레임 브리지 등록 실패:', err);
+  }
+}
+
+async function enableFrameFeatures() {
+  permissionsGranted = true;
+  await Promise.all([registerFrameRules(), registerFrameBridge()]);
+  Mixer.pingFrames();
+}
+
 async function checkExistingPermissions() {
   try {
     const has = await chrome.permissions.contains(FRAME_PERMISSIONS);
-    if (has) {
-      permissionsGranted = true;
-      await registerFrameRules();
-    }
+    if (has) await enableFrameFeatures();
   } catch { /* file:// 등 비-확장 환경 무시 */ }
 }
 
@@ -903,10 +1007,7 @@ async function requestFramePermissions() {
   if (permissionsGranted) return true;
   try {
     const granted = await chrome.permissions.request(FRAME_PERMISSIONS);
-    if (granted) {
-      permissionsGranted = true;
-      await registerFrameRules();
-    }
+    if (granted) await enableFrameFeatures();
     return granted;
   } catch {
     return false;
@@ -917,13 +1018,19 @@ async function requestFramePermissions() {
 //  초기화
 // ═══════════════════════════════════════════════════════
 
-checkExistingPermissions();
-loadHash();
-syncEmpty();
-syncChatSelect();
+(async () => {
+  // 브리지 등록이 iframe 로드보다 먼저 끝나야 치지직/숲 프레임에 주입된다
+  await Mixer.init();
+  Mixer.renderPanel(mixerRows);
+  await checkExistingPermissions();
+  syncMixerToolbar();
+  loadHash();
+  syncEmpty();
+  syncChatSelect();
 
-// 해시 없이 열렸을 때 자동으로 추가 패널 표시
-if (!streams.length) {
-  addStreamPanel.hidden = false;
-  setTimeout(() => streamInput.focus(), 100);
-}
+  // 해시 없이 열렸을 때 자동으로 추가 패널 표시
+  if (!streams.length) {
+    addStreamPanel.hidden = false;
+    setTimeout(() => streamInput.focus(), 100);
+  }
+})();

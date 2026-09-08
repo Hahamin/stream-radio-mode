@@ -22,6 +22,8 @@ Stream Radio Mode is a Chrome extension for [SOOP](https://www.sooplive.com/) li
 | Feature | What it does | Good for |
 |:---|:---|:---|
 | **Multiview** | Watch Chzzk, SOOP, Twitch, and YouTube streams side by side | watching multiple streamers at once |
+| **Audio Mixer** | Per-stream volume, mute, solo, and hover-follow (only the hovered tile plays sound) | mixing several streams or picking one to listen to |
+| **Multi Radio** | Hides every video in Multiview and keeps only the audio | listening to several streamers like radio |
 | Radio Mode | Hides video and keeps audio playing | listening while working or studying |
 | Sleep Mode | Stops automatically when a live stream or VOD ends | leaving a stream on before sleep |
 | VOD Radio Board | Turns VOD into a time/seek-bar focused audio screen | listening to replays like podcasts |
@@ -121,7 +123,7 @@ Multiview (added in v1.6.0) lets you watch Chzzk, SOOP, Twitch, and YouTube stre
 | Chzzk | Channel URL or 32-char channel ID | `chzzk.naver.com/live/abcd1234...` |
 | SOOP | Stream URL or BJ ID | `sooplive.com/bjid` or `bjid` |
 | Twitch | Channel URL or `t:username` | `twitch.tv/user` or `t:user` |
-| YouTube | Live URL or `y:videoID` | `youtube.com/live/...` or `y:abc123` |
+| YouTube | Live URL, `y:videoID`, or a channel URL (current live resolved automatically) | `youtube.com/live/...`, `y:abc123`, `youtube.com/@channel/live` |
 
 ### Browse Panel
 
@@ -131,14 +133,41 @@ Click **🔍 Browse** to open the live channel sidebar on the left.
 - Search by streamer name or stream title
 - Click a channel card to add it instantly
 
+### Audio Mixer
+
+Hover a tile to reveal a volume slider, mute, and solo (`S`) button in the bottom-left corner. The **🎚 Mixer** toolbar button opens a panel with one row per stream.
+
+- **Per-stream volume/mute**: Controls the platform player directly, so changes made inside the player show up on the slider too.
+- **Solo**: Keeps one stream audible and mutes the rest. Press again to release.
+- **Hover follow**: When enabled, only the tile under your mouse plays sound.
+- **Volume memory**: Per-channel volume is saved and restored the next time you add that channel.
+- Streams silenced by the browser's autoplay policy show a **sound off** notice on the tile; click it to unmute.
+
+| Key | Action |
+|:---:|:---|
+| `1` – `9` | Solo / unsolo that stream |
+| `0` | Clear solo |
+| `M` | Toggle mute all |
+| `H` | Toggle hover follow |
+| `R` | Toggle Multi Radio |
+| `X` | Open / close the mixer panel |
+
+### Multi Radio
+
+The **🎧 Radio** toolbar button covers every video and leaves just the streamer name and volume controls—Radio Mode for Multiview, for listening to several streams at once.
+
+- Video is only hidden, not stopped, so this does not save bandwidth.
+- Twitch's player pauses when it detects it is covered, so Twitch tiles keep a small preview instead. For the same reason, Twitch tiles always show their label and controls in a strip below the video rather than on top of it.
+
 ### Other Features
 
 - **Layout**: Auto (optimal 16:9) / Horizontal / Vertical / Focus mode
 - **Mute All**: Mute or unmute every stream at once
 - **Chat**: Show the selected stream's chat in a right-side panel
 - **URL state**: Added streams are saved in the URL hash—refresh-safe
+- **Chzzk wide**: Chzzk tiles drop the site header, sidebar, and chat and show only the player
 
-> **Permissions note**: On first use, Multiview requests access to Chzzk/SOOP domains for iframe embedding and API calls. No extra permissions are shown at install time.
+> **Permissions note**: On first use, Multiview asks once for access to the Chzzk, SOOP, Twitch, and YouTube domains plus script injection. These are used to lift embed-blocking headers, call the live-listing APIs, and inject an audio bridge into the Chzzk/SOOP players (which have no volume API). No extra permissions are shown at install time.
 
 ---
 
@@ -357,6 +386,16 @@ Bug reports, feature requests, and PRs are welcome.
 ---
 
 ## Version History
+
+### v1.7.0
+
+- **Audio Mixer**: per-stream volume, mute, solo, hover follow, mixer panel, number-key solo
+- **Multi Radio**: hide Multiview video and keep the audio
+- Player control on all four platforms (Twitch/YouTube postMessage, Chzzk/SOOP frame bridge)
+- Fixed Twitch and YouTube embeds being blocked inside the extension page
+- Chzzk tiles now show only the player, without the site UI
+- Add the current live stream from a YouTube channel URL (`@channel/live`)
+- Fixed the SOOP player handshake protocol (streamer name now shows)
 
 ### v1.6.0
 
