@@ -196,6 +196,71 @@ body {
   transform: translateX(18px);
 }
 
+/* 멀티뷰 버튼 */
+.multiview-section {
+  margin-bottom: 16px;
+}
+
+.multiview-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid rgba(100, 140, 255, 0.2);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(100, 140, 255, 0.08) 0%, rgba(130, 100, 255, 0.08) 100%);
+  color: #e0e0e0;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  text-align: left;
+}
+
+.multiview-btn:hover {
+  background: linear-gradient(135deg, rgba(100, 140, 255, 0.16) 0%, rgba(130, 100, 255, 0.16) 100%);
+  border-color: rgba(100, 140, 255, 0.35);
+}
+
+.multiview-btn:active {
+  transform: scale(0.985);
+}
+
+.multiview-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.multiview-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.multiview-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.multiview-desc {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.multiview-arrow {
+  font-size: 16px;
+  color: rgba(100, 140, 255, 0.6);
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.multiview-btn:hover .multiview-arrow {
+  transform: translateX(2px);
+  color: rgba(100, 140, 255, 0.9);
+}
+
 /* 사이트 목록 */
 .sites {
   padding: 12px;

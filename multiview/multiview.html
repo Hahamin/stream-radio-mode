@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Stream Radio Mode — 멀티뷰</title>
+  <link rel="stylesheet" href="multiview.css">
+</head>
+<body>
+  <div id="toolbar">
+    <div class="toolbar-left">
+      <span class="brand">🎧 멀티뷰</span>
+      <button id="addStreamBtn" class="toolbar-btn" title="스트림 추가">+ 추가</button>
+      <button id="browseBtn" class="toolbar-btn" title="라이브 찾아보기">🔍 찾아보기</button>
+    </div>
+    <div class="toolbar-right">
+      <button id="layoutBtn" class="toolbar-btn" title="레이아웃 변경">⊞ 레이아웃</button>
+      <button id="muteAllBtn" class="toolbar-btn" title="전체 음소거">🔇 전체 음소거</button>
+      <button id="chatToggleBtn" class="toolbar-btn" title="채팅 패널 토글">💬 채팅</button>
+    </div>
+  </div>
+
+  <div id="addStreamPanel" hidden>
+    <div class="add-row">
+      <input id="streamInput" type="text"
+        placeholder="치지직/숲/트위치/유튜브 URL 또는 ID (mul.live URL도 가능)"
+        autocomplete="off" spellcheck="false">
+      <button id="streamSubmit" class="primary-btn">추가</button>
+      <button id="addPanelClose" class="close-panel-btn" title="닫기">✕</button>
+    </div>
+    <div class="input-hints">
+      <span class="hint-tag chzzk">치지직</span> 채널URL / 32자 ID &nbsp;·&nbsp;
+      <span class="hint-tag soop">숲</span> 방송URL / BJ ID &nbsp;·&nbsp;
+      <span class="hint-tag twitch">트위치</span> t:사용자명 &nbsp;·&nbsp;
+      <span class="hint-tag youtube">유튜브</span> y:영상ID
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="browsePanel" hidden>
+      <div class="browse-header">
+        <input id="browseSearch" type="text" placeholder="스트리머 또는 방송 검색..." autocomplete="off" spellcheck="false">
+        <div class="browse-tabs">
+          <button class="browse-tab active" data-platform="chzzk">치지직</button>
+          <button class="browse-tab" data-platform="soop">숲</button>
+        </div>
+      </div>
+      <div id="browseList" class="browse-list"></div>
+      <div id="browseLoading" class="browse-loading" hidden>
+        <div class="spinner"></div>
+      </div>
+      <div id="browseEmpty" class="browse-empty" hidden>검색 결과가 없습니다</div>
+    </div>
+    <div id="streams"></div>
+    <div id="chatPanel" hidden>
+      <div id="chatHeader">
+        <select id="chatSelect"></select>
+        <button id="chatHideBtn" class="chat-hide-btn" title="채팅 숨기기">✕</button>
+      </div>
+      <iframe id="chatFrame" src="about:blank"></iframe>
+    </div>
+  </div>
+
+  <div id="emptyState">
+    <div class="empty-icon">📺</div>
+    <h2>스트림을 추가하세요</h2>
+    <p>상단 <strong>+ 추가</strong>를 눌러 여러 방송을 동시에 볼 수 있습니다.</p>
+    <div class="platform-grid">
+      <div class="pcard">
+        <span class="hint-tag chzzk">치지직</span>
+        <span>chzzk.naver.com/live/... 또는 32자 채널 ID</span>
+      </div>
+      <div class="pcard">
+        <span class="hint-tag soop">숲</span>
+        <span>sooplive.com/bjid 또는 BJ ID</span>
+      </div>
+      <div class="pcard">
+        <span class="hint-tag twitch">트위치</span>
+        <span>twitch.tv/user 또는 t:사용자명</span>
+      </div>
+      <div class="pcard">
+        <span class="hint-tag youtube">유튜브</span>
+        <span>youtube.com/live/... 또는 y:영상ID</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="multiview.js"></script>
+</body>
+</html>

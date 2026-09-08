@@ -255,4 +255,36 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (changes.enableSoop) enableSoop.checked = changes.enableSoop.newValue !== false;
 });
 
+// 멀티뷰 열기
+const openMultiview = $('#openMultiview');
+if (openMultiview) {
+  openMultiview.addEventListener('click', async () => {
+    const url = chrome.runtime.getURL('multiview/multiview.html');
+
+    try {
+      const tabs = await chrome.tabs.query({ url });
+      if (tabs.length > 0) {
+        await chrome.tabs.update(tabs[0].id, { active: true });
+        await chrome.windows.update(tabs[0].windowId, { focused: true });
+        window.close();
+        return;
+      }
+    } catch {}
+
+    let hash = '';
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.url) {
+        const chzzkMatch = tab.url.match(/chzzk\.naver\.com\/(?:live\/)?([0-9a-f]{32})/i);
+        const soopMatch = tab.url.match(/sooplive\.(?:co\.kr|com)\/([a-zA-Z0-9_]+)/i);
+        if (chzzkMatch) hash = '#' + chzzkMatch[1].toLowerCase();
+        else if (soopMatch && soopMatch[1].toLowerCase() !== 'player') hash = '#' + soopMatch[1].toLowerCase();
+      }
+    } catch {}
+
+    chrome.tabs.create({ url: url + hash });
+    window.close();
+  });
+}
+
 init();
