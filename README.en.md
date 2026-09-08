@@ -2,16 +2,16 @@
 
 # Stream Radio Mode
 
-### Listen to SOOP live streams and VODs like radio
+### SOOP Radio Mode + Multiview (Chzzk · SOOP · Twitch · YouTube)
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome_Web_Store-Install-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/stream-radio-mode/nomodebfjalibapnnkfmbmempgkgjhpo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
-**Hide the video for a while. Keep the audio comfortable.**
+**Hide the video for a while. Keep the audio comfortable. Watch multiple streams at once.**
 
-Stream Radio Mode is a Chrome extension for [SOOP](https://www.sooplive.com/) live streams and VOD pages. It gives you radio mode, sleep mode, stealth mode, speech EQ, chat/list panels, bandwidth saving, and keyboard shortcuts.
+Stream Radio Mode is a Chrome extension for [SOOP](https://www.sooplive.com/) live streams and VOD pages. It gives you radio mode, sleep mode, stealth mode, speech EQ, chat/list panels, bandwidth saving, and keyboard shortcuts. Starting with v1.6.0, **Multiview** lets you watch Chzzk, SOOP, Twitch, and YouTube streams simultaneously.
 
-[Install](#install) · [First Use](#first-use) · [Features](#features) · [Shortcuts](#shortcuts) · [한국어](README.md)
+[Install](#install) · [First Use](#first-use) · [Multiview](#multiview) · [Features](#features) · [Shortcuts](#shortcuts) · [한국어](README.md)
 
 </div>
 
@@ -21,6 +21,7 @@ Stream Radio Mode is a Chrome extension for [SOOP](https://www.sooplive.com/) li
 
 | Feature | What it does | Good for |
 |:---|:---|:---|
+| **Multiview** | Watch Chzzk, SOOP, Twitch, and YouTube streams side by side | watching multiple streamers at once |
 | Radio Mode | Hides video and keeps audio playing | listening while working or studying |
 | Sleep Mode | Stops automatically when a live stream or VOD ends | leaving a stream on before sleep |
 | VOD Radio Board | Turns VOD into a time/seek-bar focused audio screen | listening to replays like podcasts |
@@ -31,7 +32,7 @@ Stream Radio Mode is a Chrome extension for [SOOP](https://www.sooplive.com/) li
 | Minimize Mode | Minimizes the current browser window | leaving audio on with the window out of the way |
 | Media Keys | Control playback with keyboard media keys and Bluetooth earbuds | hands-free control while multitasking |
 | Global Shortcuts | `Alt+Shift+R` etc. work from any tab | toggling radio/stealth while on another tab |
-| Chat Paste Unlock | Automatically unblocks paste in the chat input | when Ctrl+V does not work in SOOP chat |
+| Clipboard/Selection Unlock | Automatically unblocks copy, paste, text selection, and right-click | when Ctrl+C/V, drag-select, or right-click is blocked on SOOP |
 | Health Badge | Shows a red `!` badge when SOOP changes break a feature | catching silent breakage early |
 
 ---
@@ -99,6 +100,45 @@ The radio overlay includes:
 <p align="center">
   <img src="docs/radio-mode.png" width="420" alt="Radio mode overlay">
 </p>
+
+---
+
+## Multiview
+
+Multiview (added in v1.6.0) lets you watch Chzzk, SOOP, Twitch, and YouTube streams side by side in a single tab.
+
+### Getting Started
+
+1. Click the **📺 멀티뷰 (Multiview)** button in the extension popup.
+2. Add streams in two ways:
+   - **🔍 Browse**: Pick from live Chzzk/SOOP channel listings
+   - **+ Add**: Enter a URL or channel ID directly
+
+### Supported Platforms
+
+| Platform | Input | Example |
+|:---|:---|:---|
+| Chzzk | Channel URL or 32-char channel ID | `chzzk.naver.com/live/abcd1234...` |
+| SOOP | Stream URL or BJ ID | `sooplive.com/bjid` or `bjid` |
+| Twitch | Channel URL or `t:username` | `twitch.tv/user` or `t:user` |
+| YouTube | Live URL or `y:videoID` | `youtube.com/live/...` or `y:abc123` |
+
+### Browse Panel
+
+Click **🔍 Browse** to open the live channel sidebar on the left.
+
+- Switch between **Chzzk** and **SOOP** tabs for popular live streams
+- Search by streamer name or stream title
+- Click a channel card to add it instantly
+
+### Other Features
+
+- **Layout**: Auto (optimal 16:9) / Horizontal / Vertical / Focus mode
+- **Mute All**: Mute or unmute every stream at once
+- **Chat**: Show the selected stream's chat in a right-side panel
+- **URL state**: Added streams are saved in the URL hash—refresh-safe
+
+> **Permissions note**: On first use, Multiview requests access to Chzzk/SOOP domains for iframe embedding and API calls. No extra permissions are shown at install time.
 
 ---
 
@@ -185,9 +225,16 @@ Radio Mode can still show SOOP chat.
 - The list panel can appear on the left for SOOP recommendations/lists.
 - If you click an internal SOOP stream link from chat/list, radio mode can rebind to the new player.
 
-### Chat Paste Unlock
+### Clipboard/Selection Unlock
 
-SOOP blocks Ctrl+V paste in the chat input. This extension automatically unblocks paste with no extra setup. It works on every SOOP page regardless of whether radio mode is on.
+SOOP blocks paste in the chat input, and some areas also block copy, text selection, and right-click. This extension automatically unblocks all of them:
+
+- **Paste (Ctrl+V)**: works normally in chat input
+- **Copy (Ctrl+C)**: select and copy text works normally
+- **Text selection**: drag to select text anywhere
+- **Right-click menu**: context menu shows normally
+
+It works on every SOOP page regardless of whether radio mode is on.
 
 ### Stealth Mode
 
@@ -310,6 +357,14 @@ Bug reports, feature requests, and PRs are welcome.
 ---
 
 ## Version History
+
+### v1.6.0
+
+- **Multiview**: Watch Chzzk, SOOP, Twitch, and YouTube side by side (optimal 16:9 grid layout)
+- **Browse panel**: Live channel listings and search for Chzzk/SOOP
+- **Clipboard/selection unlock**: Copy, text selection, and right-click unlock in addition to paste
+- URL hash state preservation, mute all, chat panel, focus mode
+- Optional permissions — no new install-time permission warnings
 
 ### v1.5.1
 
