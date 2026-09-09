@@ -69,19 +69,19 @@ function parseOne(input) {
   if (/^[0-9a-f]{32}$/i.test(input))
     return { platform: 'chzzk', id: input.toLowerCase() };
 
-  // 숲 URL (play.sooplive / sooplive)
-  m = input.match(/sooplive\.(?:co\.kr|com)\/([a-zA-Z0-9_]+)/i);
+  // 숲 URL (play.sooplive / sooplive) — 맨몸 ID 분기와 길이 규칙을 맞춰야 해시 복원 시 사라지지 않는다
+  m = input.match(/sooplive\.(?:co\.kr|com)\/([a-zA-Z0-9_]{3,12})(?:[/?#]|$)/i);
   if (m) {
     const id = m[1].toLowerCase();
     if (id !== 'player') return { platform: 'soop', id };
   }
 
   // 트위치 URL
-  m = input.match(/twitch\.tv\/([a-zA-Z0-9_]{4,25})/i);
+  m = input.match(/twitch\.tv\/([a-zA-Z0-9_]{3,25})/i);
   if (m) return { platform: 'twitch', id: m[1].toLowerCase() };
 
   // t: 접두사 → 트위치
-  m = input.match(/^t:([a-zA-Z0-9_]{4,25})$/i);
+  m = input.match(/^t:([a-zA-Z0-9_]{3,25})$/i);
   if (m) return { platform: 'twitch', id: m[1].toLowerCase() };
 
   // 유튜브 URL (watch, live, youtu.be)
@@ -371,6 +371,7 @@ function setChat(visible) {
     chatFrame.src = 'about:blank';
   }
   relayout();
+  Mixer.resumeTwitch();
 }
 
 function loadChat() {
@@ -559,6 +560,7 @@ function setMixerPanel(visible) {
   mixerPanel.hidden = !visible;
   mixerBtn.classList.toggle('active', visible);
   relayout();
+  Mixer.resumeTwitch();
 }
 
 function syncMixerToolbar() {
@@ -629,12 +631,12 @@ async function handleSubmit() {
         addStream(d);
       }
     }
+    streamInput.value = '';
   } finally {
     submitting = false;
     streamSubmit.disabled = false;
+    streamInput.focus();
   }
-  streamInput.value = '';
-  streamInput.focus();
 }
 
 streamSubmit.addEventListener('click', handleSubmit);
@@ -666,7 +668,7 @@ window.addEventListener('resize', () => {
 document.addEventListener('keydown', (e) => {
   // 믹서 단축키 (입력 중이 아닐 때, 수정키 없이). 한글 IME 상태에서도 동작하도록 e.code 로 판별
   if (!isTypingTarget(e.target) && !e.ctrlKey && !e.altKey && !e.metaKey && !e.isComposing) {
-    const digit = /^Digit([0-9])$/.exec(e.code);
+    const digit = /^(?:Digit|Numpad)([0-9])$/.exec(e.code);
     if (digit) {
       const n = Number(digit[1]);
       if (n === 0) Mixer.setSolo(null); else Mixer.soloByIndex(n - 1);
@@ -726,6 +728,7 @@ function toggleBrowse() {
     loadBrowse();
   }
   relayout();
+  Mixer.resumeTwitch();
 }
 
 function formatViewers(n) {
@@ -966,6 +969,43 @@ let sessionRuleIds = [];
 // 유튜브는 Referer 없는 임베드를 오류 153, 자기 도메인 Referer는 152로 거부하는데
 // chrome-extension:// 페이지는 Referer를 아예 보내지 않으므로 이 확장의 공식 페이지를 Referer로 넣는다.
 // 규칙은 이 탭에만 적용되는 세션 규칙으로 등록해 다른 사이트의 임베드에는 영향을 주지 않는다.
+function frameRules(base, tabId) {
+  return [{
+    id: base + 1,
+    priority: 1,
+    action: {
+      type: 'modifyHeaders',
+      responseHeaders: [
+        { header: 'X-Frame-Options', operation: 'remove' },
+        { header: 'Content-Security-Policy', operation: 'remove' },
+      ],
+    },
+    condition: {
+      resourceTypes: ['sub_frame'],
+      tabIds: [tabId],
+      requestDomains: [
+        'chzzk.naver.com',
+        'play.sooplive.com',
+        'play.sooplive.co.kr',
+        'player.twitch.tv',
+        'www.twitch.tv',
+      ],
+    },
+  }, {
+    id: base + 2,
+    priority: 1,
+    action: {
+      type: 'modifyHeaders',
+      requestHeaders: [{ header: 'Referer', operation: 'set', value: 'https://github.com/Hahamin/stream-radio-mode' }],
+    },
+    condition: {
+      resourceTypes: ['sub_frame'],
+      tabIds: [tabId],
+      requestDomains: ['www.youtube.com'],
+    },
+  }];
+}
+
 async function registerFrameRules() {
   if (!chrome.declarativeNetRequest) return;
   try {
@@ -975,64 +1015,49 @@ async function registerFrameRules() {
     const tab = await chrome.tabs.getCurrent();
     if (!tab?.id) return;
 
-    // 닫힌 탭의 규칙과 이 탭의 이전 규칙(새로고침 등)은 제거하고,
-    // 규칙 ID는 탭 ID와 무관하게 비어 있는 작은 번호를 쓴다 (탭 ID는 32비트 범위를 넘을 수 있음)
-    const openTabs = new Set((await chrome.tabs.query({})).map(t => t.id));
-    const existing = await chrome.declarativeNetRequest.getSessionRules();
-    const stale = existing
-      .filter(r => (r.condition.tabIds || []).every(id => id === tab.id || !openTabs.has(id)))
-      .map(r => r.id);
-    const used = new Set(existing.filter(r => !stale.includes(r.id)).map(r => r.id));
-    let base = 100;
-    while (used.has(base + 1) || used.has(base + 2)) base += 10;
-    sessionRuleIds = [base + 1, base + 2];
+    // 규칙 ID는 탭 ID와 무관하게 비어 있는 작은 번호를 쓴다 (탭 ID는 32비트 범위를 넘을 수 있음).
+    // 멀티뷰 탭이 둘 이상이면 같은 번호를 동시에 고를 수 있으므로, 충돌하면 다음 번호로 다시 시도한다.
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const openTabs = new Set((await chrome.tabs.query({})).map(t => t.id));
+      const existing = await chrome.declarativeNetRequest.getSessionRules();
+      // 이 탭의 것이거나 이미 닫힌 탭의 것만 정리 대상 (tabIds 가 없는 규칙은 건드리지 않는다)
+      const stale = existing
+        .filter(r => {
+          const ids = r.condition.tabIds;
+          return Array.isArray(ids) && ids.length > 0 && ids.every(id => id === tab.id || !openTabs.has(id));
+        })
+        .map(r => r.id);
+      const used = new Set(existing.filter(r => !stale.includes(r.id)).map(r => r.id));
+      let base = 100 + attempt * 10;
+      while (used.has(base + 1) || used.has(base + 2)) base += 10;
 
-    await chrome.declarativeNetRequest.updateSessionRules({
-      removeRuleIds: stale,
-      addRules: [{
-        id: base + 1,
-        priority: 1,
-        action: {
-          type: 'modifyHeaders',
-          responseHeaders: [
-            { header: 'X-Frame-Options', operation: 'remove' },
-            { header: 'Content-Security-Policy', operation: 'remove' },
-          ],
-        },
-        condition: {
-          resourceTypes: ['sub_frame'],
-          tabIds: [tab.id],
-          requestDomains: [
-            'chzzk.naver.com',
-            'play.sooplive.com',
-            'play.sooplive.co.kr',
-            'player.twitch.tv',
-            'www.twitch.tv',
-          ],
-        },
-      }, {
-        id: base + 2,
-        priority: 1,
-        action: {
-          type: 'modifyHeaders',
-          requestHeaders: [{ header: 'Referer', operation: 'set', value: 'https://github.com/Hahamin/stream-radio-mode' }],
-        },
-        condition: {
-          resourceTypes: ['sub_frame'],
-          tabIds: [tab.id],
-          requestDomains: ['www.youtube.com'],
-        },
-      }],
-    });
+      try {
+        await chrome.declarativeNetRequest.updateSessionRules({
+          removeRuleIds: stale,
+          addRules: frameRules(base, tab.id),
+        });
+        sessionRuleIds = [base + 1, base + 2];
+        return;
+      } catch (err) {
+        // 다른 탭이 같은 번호를 먼저 차지한 경우 → 다음 번호로
+        if (attempt === 19) throw err;
+      }
+    }
   } catch (err) {
     console.warn('[multiview] 프레임 규칙 등록 실패:', err);
   }
 }
 
-window.addEventListener('pagehide', () => {
-  if (sessionRuleIds.length && chrome.declarativeNetRequest) {
+// bfcache 로 들어갈 때(persisted)는 규칙을 살려둬야 뒤로가기로 돌아왔을 때 임베드가 계속 동작한다
+window.addEventListener('pagehide', (e) => {
+  if (!e.persisted && sessionRuleIds.length && chrome.declarativeNetRequest) {
     chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: sessionRuleIds }).catch(() => {});
+    sessionRuleIds = [];
   }
+});
+
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted && permissionsGranted) registerFrameRules();
 });
 
 // 치지직/숲 플레이어 프레임에 오디오 브리지 주입 (볼륨 제어용)

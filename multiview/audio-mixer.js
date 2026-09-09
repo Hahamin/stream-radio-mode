@@ -63,6 +63,11 @@ const Mixer = (() => {
       this.queue = [];
       q.forEach(fn => fn());
     }
+    // iframe 을 다시 불러올 때 호출 — 큐를 비우고 준비 상태를 되돌린다
+    reset() {
+      this.ready = false;
+      this.queue = [];
+    }
     report(partial) { onAdapterState(this.entry, partial); }
     onMessage() {}
     dispose() {}
@@ -112,6 +117,10 @@ const Mixer = (() => {
       const w = this.entry.iframe.contentWindow;
       if (w) w.postMessage(JSON.stringify({ ...obj, id: this.id, channel: 'widget' }), YT_ORIGIN);
     }
+    reset() {
+      super.reset();
+      this.startHandshake();
+    }
     startHandshake() {
       clearInterval(this.timer);
       this.ready = false;
@@ -158,11 +167,38 @@ const Mixer = (() => {
       this.key = keyOf(entry.stream);
       this.frameId = frameIndex.has(this.key) ? frameIndex.get(this.key) : null;
       if (this.frameId !== null) this.markReady();
+      // 프레임에게 "이 임베드의 주인은 멀티뷰"라고 알린다. 브리지는 이 신호를 받은 뒤에만
+      // 자신을 등록하고 플레이어를 꽉 채우므로, 일반 웹사이트가 임베드한 플레이어는 건드리지 않는다.
+      this.claim = () => {
+        const w = entry.iframe.contentWindow;
+        if (w) w.postMessage({ __srm: 'mv-owner' }, '*');
+      };
+      // 플레이어가 스스로 이동(숲 /direct 리다이렉트, 화질 변경 등)하면 새 문서에서 소유권이 초기화되므로
+      // 신호는 계속 보낸다. 브리지는 이미 소유 상태면 무시한다.
+      this.onLoad = () => {
+        this.frameId = null;
+        frameIndex.delete(this.key);
+        this.ready = false;
+        this.claim();
+      };
+      entry.iframe.addEventListener('load', this.onLoad);
+      this.claimTimer = setInterval(this.claim, 2000);
+      this.claim();
     }
     attachFrame(frameId) {
       this.frameId = frameId;
       this.markReady();
       resend(this.entry);
+    }
+    reset() {
+      super.reset();
+      this.frameId = null;
+      frameIndex.delete(this.key);
+      this.claim();
+    }
+    dispose() {
+      clearInterval(this.claimTimer);
+      this.entry.iframe.removeEventListener('load', this.onLoad);
     }
     async cmd(cmd, value) {
       if (tabId === null || this.frameId === null) return;
@@ -198,13 +234,15 @@ const Mixer = (() => {
   //  상태 모델
   // ═══════════════════════════════════════════════════════
 
-  function effective(entry) {
-    const muted =
-      allMuted ||
-      entry.muted ||
+  // 사용자가 이 스트림에 직접 건 음소거가 아니라, 전역 상태 때문에 강제된 음소거인가
+  function forcedMute(entry) {
+    return allMuted ||
       (soloUid !== null && soloUid !== entry.uid) ||
       (settings.hoverFollow && hoverUid !== null && hoverUid !== entry.uid);
-    return { volume: entry.base, muted };
+  }
+
+  function effective(entry) {
+    return { volume: entry.base, muted: forcedMute(entry) || entry.muted };
   }
 
   function apply(uid) {
@@ -270,6 +308,10 @@ const Mixer = (() => {
           // 소리 켜기를 요청했지만 계속 음소거 → 자동재생 정책에 막힌 상태
           if (userActivated) { entry.muted = true; entry.sent.muted = true; entry.adapter.adopt('muted', true); }
           else entry.blocked = true;
+        } else if (forcedMute(entry)) {
+          // 전체 음소거·솔로·호버 팔로우로 강제된 음소거인데 플레이어가 계속 소리를 냄.
+          // 여기서 채택하면 apply() 가 다시 음소거를 걸어 진동이 생기므로 한 번만 재시도한다.
+          if (!entry.retried.muted) { entry.retried.muted = true; entry.adapter.setMuted(true, true); }
         } else {
           entry.muted = false;
           entry.sent.muted = false;
@@ -514,6 +556,16 @@ const Mixer = (() => {
       if (!(t instanceof Element) || !t.closest('.stream-wrapper')) clearHover();
     }, true);
 
+    // 커서가 이미 타일 위에 있는 채로 탭이 복귀하면 가장자리 밴드를 지나지 않아 진입을 놓친다.
+    // 플레이어를 클릭하면 그 iframe 이 포커스를 가져가므로 이를 진입 신호로 쓴다.
+    window.addEventListener('blur', () => {
+      const el = document.activeElement;
+      if (!el || el.tagName !== 'IFRAME') return;
+      for (const e of entries.values()) {
+        if (e.iframe === el) { hoverTile(e.uid); return; }
+      }
+    });
+
     document.addEventListener('pointerdown', () => {
       if (userActivated) return;
       userActivated = true;
@@ -556,13 +608,18 @@ const Mixer = (() => {
     entry.adapter = createAdapter(entry);
     entries.set(stream.uid, entry);
 
-    // 크로스오리진 iframe 위에서는 부모 문서가 마우스 이벤트를 받지 못하고 :hover 도 매치되지 않으므로
-    // 투명 센서로 진입을 잡고, 진입 후엔 센서를 투과시켜 플레이어 조작을 허용한다.
+    // 크로스오리진 iframe 위에서는 부모 문서가 마우스 이벤트를 받지 못하고 :hover 도 매치되지 않는다.
+    // 타일 가장자리에만 투명 밴드를 두면 마우스가 들어올 때 반드시 지나므로 진입을 감지할 수 있고,
+    // 가운데는 비어 있어 플레이어 클릭을 절대 막지 않는다.
     // 이탈은 문서의 다른 곳에서 pointerover 가 오는 것으로 감지한다 (init 참고).
-    // 트위치는 센서가 가림으로 잡혀 정지하므로 컨트롤 띠 진입으로만 감지한다.
+    // 트위치는 밴드가 가림으로 잡혀 정지하므로 컨트롤 띠 진입으로만 감지한다.
     if (stream.platform !== 'twitch') {
       const sensor = el('div', 'hover-sensor');
-      sensor.addEventListener('pointerenter', () => hoverTile(stream.uid));
+      for (const side of ['t', 'r', 'b', 'l']) {
+        const band = el('div', `hs-band hs-${side}`);
+        band.addEventListener('pointerenter', () => hoverTile(stream.uid));
+        sensor.appendChild(band);
+      }
       wrapper.appendChild(sensor);
       entry.sensor = sensor;
     }
@@ -638,9 +695,7 @@ const Mixer = (() => {
   function hoverTile(uid) {
     if (hoverUid === uid) return;
     for (const e of entries.values()) {
-      const on = e.uid === uid;
-      if (e.tile) e.tile.wrapper.classList.toggle('hovered', on);
-      if (e.sensor) e.sensor.classList.toggle('passthrough', on);
+      if (e.tile) e.tile.wrapper.classList.toggle('hovered', e.uid === uid);
     }
     setHover(uid);
   }
@@ -649,7 +704,6 @@ const Mixer = (() => {
     if (hoverUid === null) return;
     for (const e of entries.values()) {
       if (e.tile) e.tile.wrapper.classList.remove('hovered');
-      if (e.sensor) e.sensor.classList.remove('passthrough');
     }
     setHover(null);
   }
@@ -667,11 +721,12 @@ const Mixer = (() => {
     applyAll();
   }
 
-  // 트위치는 가려지거나 숨겨졌다 나타나면 정지한 채 스스로 재개하지 않으므로 레이아웃 전환 뒤 한 번 찔러준다
+  // 트위치는 가려지거나 숨겨졌다 나타나면 정지한 채 스스로 재개하지 않으므로 레이아웃 전환 뒤 찔러준다.
+  // 보고된 paused 값이 아직 낡았을 수 있어 조건 없이 보낸다 (재생 중에 play 는 무해)
   function resumeTwitch() {
     setTimeout(() => {
       for (const e of entries.values()) {
-        if (e.stream.platform === 'twitch' && e.actual.paused) e.adapter.play();
+        if (e.stream.platform === 'twitch') e.adapter.play();
       }
     }, 800);
   }
@@ -687,7 +742,7 @@ const Mixer = (() => {
   // 권한을 뒤늦게 받은 경우 등 iframe 을 처음부터 다시 불러오고 원하는 상태를 재적용한다
   function reloadAll() {
     for (const e of entries.values()) {
-      e.adapter.ready = false;
+      e.adapter.reset();
       e.actual = { volume: null, muted: null, paused: null };
       e.iframe.src = e.iframe.src;
       resend(e);

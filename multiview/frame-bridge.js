@@ -9,8 +9,6 @@
 
 (() => {
   if (window.top === window.self) return;
-  // 확장 페이지가 부모면 Referer 가 없다. 일반 웹사이트가 임베드한 프레임(Referer 있음)에는 관여하지 않는다
-  if (document.referrer) return;
   if (window.__srmFrameBridge) return;
   window.__srmFrameBridge = true;
 
@@ -30,6 +28,17 @@
   const key = `${platform}:${id}`;
   const desired = { volume: null, muted: null };
   let video = null;
+  // 멀티뷰 페이지가 이 프레임을 자기 것이라고 밝히기 전에는 아무것도 하지 않는다.
+  // 일반 웹사이트가 임베드한 플레이어를 건드리지 않기 위한 장치.
+  let owned = false;
+
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.__srm === 'mv-owner' && !owned) {
+      owned = true;
+      fitChzzkPlayer();
+      announce();
+    }
+  });
 
   function send(msg) {
     try {
@@ -55,6 +64,7 @@
   }
 
   function onVideoEvent(e) {
+    if (!owned) return;
     // 플레이어가 초기화 과정에서 볼륨을 되돌리는 경우가 있어 재생 시작 시점에 다시 적용
     if (e.type === 'loadedmetadata' || e.type === 'play') applyDesired();
     send(state());
@@ -74,7 +84,7 @@
   // 치지직 라이브 페이지는 헤더/사이드바/채팅까지 통째로 프레임에 들어오므로
   // 플레이어 루트(가장 바깥 pzp 컨테이너)를 프레임 전체에 고정해 영상만 보이게 한다.
   function fitChzzkPlayer() {
-    if (platform !== 'chzzk' || !video) return;
+    if (platform !== 'chzzk' || !video || !owned) return;
     let root = video.closest('#live_player_layout, .chzzk_player');
     if (!root) {
       for (let e = video.parentElement; e && e !== document.body; e = e.parentElement) {
@@ -100,7 +110,7 @@
   // 채팅 프레임 등 같은 경로를 쓰는 다른 프레임이 플레이어 자리를 가로채지 않도록
   // <video> 를 잡은 프레임만 자신을 알린다
   function announce() {
-    if (video) send({ type: 'mv-frame-ready' });
+    if (video && owned) send({ type: 'mv-frame-ready' });
   }
 
   function bind(v) {
