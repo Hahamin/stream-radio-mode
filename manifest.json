@@ -4,7 +4,7 @@
   "version": "1.7.0",
   "description": "숲(SOOP) 라디오 모드 + 멀티뷰(치지직·숲·트위치·유튜브 동시 시청, 오디오 믹서). 수면모드, 루팡모드, 대사 EQ, 단축키 지원.",
   "permissions": ["storage", "activeTab", "tabs"],
-  "optional_permissions": ["declarativeNetRequest", "scripting"],
+  "optional_permissions": ["declarativeNetRequestWithHostAccess", "scripting"],
   "optional_host_permissions": [
     "*://api.chzzk.naver.com/*",
     "*://chzzk.naver.com/*",

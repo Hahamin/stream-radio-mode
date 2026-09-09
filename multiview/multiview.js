@@ -948,7 +948,9 @@ browseSearch.addEventListener('keydown', (e) => {
 // ═══════════════════════════════════════════════════════
 
 const FRAME_PERMISSIONS = {
-  permissions: ['declarativeNetRequest', 'scripting'],
+  // declarativeNetRequest 는 선택 권한이 될 수 없어 Chrome 이 통째로 무시한다.
+  // WithHostAccess 변형은 같은 기능을 아래 origins 범위 안에서만 제공하며 선택 권한으로 쓸 수 있다.
+  permissions: ['declarativeNetRequestWithHostAccess', 'scripting'],
   origins: [
     '*://api.chzzk.naver.com/*',
     '*://chzzk.naver.com/*',
