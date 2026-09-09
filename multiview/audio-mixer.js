@@ -109,7 +109,8 @@ const Mixer = (() => {
       super(entry);
       this.id = `mv${entry.uid}`;
       this.timer = null;
-      // iframe이 아직 about:blank 인 동안 보내면 targetOrigin 불일치 경고만 나므로 load 이후에 시작
+      // iframe이 아직 about:blank 인 동안 보내면 targetOrigin 불일치 경고만 나므로 load 이후에 시작.
+      // 플레이어가 스스로 이동한 경우에도 새 문서와 다시 악수해야 하므로 매 load 마다 건다.
       this.onLoad = () => this.startHandshake();
       entry.iframe.addEventListener('load', this.onLoad);
     }
@@ -141,10 +142,6 @@ const Mixer = (() => {
       try { d = JSON.parse(e.data); } catch { return; }
       if (!d || d.id !== this.id) return;
 
-      if (d.event === 'initialDelivery' || d.event === 'onReady') {
-        clearInterval(this.timer);
-        this.markReady();
-      }
       if ((d.event === 'infoDelivery' || d.event === 'initialDelivery') && d.info) {
         const partial = {};
         if (typeof d.info.volume === 'number') partial.volume = d.info.volume / 100;
@@ -153,6 +150,12 @@ const Mixer = (() => {
         const author = d.info.videoData?.author;
         if (typeof author === 'string' && author) partial.name = author;
         this.report(partial);
+      }
+      // 리로드 뒤에는 initialDelivery 를 놓치고 alreadyInitialized 만 오는 경우가 있다.
+      // 어떤 응답이든 도착했다면 통신이 되는 것이므로 준비 완료로 본다.
+      if (d.event === 'initialDelivery' || d.event === 'onReady' || d.event === 'alreadyInitialized' || d.event === 'infoDelivery') {
+        clearInterval(this.timer);
+        this.markReady();
       }
     }
     dispose() {
