@@ -392,6 +392,13 @@ Bug reports, feature requests, and PRs are welcome.
 
 ## Version History
 
+### v1.7.1
+
+- Limit the paste helper to live-player chat inputs so station post editors retain their own multiline paste handling.
+- Keep copy, cut, selection and context-menu helpers out of inputs and editors while preserving unlock support for read-only content.
+- Regression checks: `npm test` (requires Playwright Chromium).
+- For unpacked installations, reload Stream Radio Mode at `chrome://extensions`, then reload existing SOOP tabs. Save drafts outside the browser first.
+
 ### v1.7.0
 
 - **Audio Mixer**: per-stream volume, mute, solo, hover follow, mixer panel, number-key solo

@@ -6,7 +6,8 @@
     "cws:upload": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action upload",
     "cws:publish": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action publish",
     "cws:release": "powershell -ExecutionPolicy Bypass -File scripts/cws-release.ps1 -Action release",
-    "test": "npm run check:syntax"
+    "test:paste": "node test-paste-unlock.js",
+    "test": "npm run check:syntax && npm run test:paste"
   },
   "devDependencies": {
     "playwright": "^1.58.2"

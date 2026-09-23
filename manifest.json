@@ -1,10 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Stream Radio Mode",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "숲(SOOP) 라디오 모드 + 멀티뷰(치지직·숲·트위치·유튜브 동시 시청, 오디오 믹서). 수면모드, 루팡모드, 대사 EQ, 단축키 지원.",
-  "permissions": ["storage", "activeTab", "tabs"],
-  "optional_permissions": ["declarativeNetRequestWithHostAccess", "scripting"],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs"
+  ],
+  "optional_permissions": [
+    "declarativeNetRequestWithHostAccess",
+    "scripting"
+  ],
   "optional_host_permissions": [
     "*://api.chzzk.naver.com/*",
     "*://chzzk.naver.com/*",
@@ -18,13 +25,32 @@
   ],
   "content_scripts": [
     {
-      "matches": ["*://*.sooplive.co.kr/*", "*://*.sooplive.com/*"],
-      "js": ["content/paste-unlock.js"],
+      "matches": [
+        "*://play.sooplive.co.kr/*",
+        "*://play.sooplive.com/*"
+      ],
+      "js": [
+        "content/paste-unlock.js"
+      ],
       "run_at": "document_start",
       "all_frames": false
     },
     {
-      "matches": ["*://*.sooplive.co.kr/*", "*://*.sooplive.com/*"],
+      "matches": [
+        "*://*.sooplive.co.kr/*",
+        "*://*.sooplive.com/*"
+      ],
+      "js": [
+        "content/selection-unlock.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "*://*.sooplive.co.kr/*",
+        "*://*.sooplive.com/*"
+      ],
       "js": [
         "content/ui-dark-theme.js",
         "content/ui-actions.js",
@@ -37,13 +63,20 @@
         "content/boss.js",
         "content/soop.js"
       ],
-      "css": ["styles/radio-overlay.css"],
+      "css": [
+        "styles/radio-overlay.css"
+      ],
       "run_at": "document_idle",
       "all_frames": false
     },
     {
-      "matches": ["*://vod.sooplive.co.kr/player/*", "*://vod.sooplive.com/player/*"],
-      "js": ["content/bandwidth-frame.js"],
+      "matches": [
+        "*://vod.sooplive.co.kr/player/*",
+        "*://vod.sooplive.com/player/*"
+      ],
+      "js": [
+        "content/bandwidth-frame.js"
+      ],
       "run_at": "document_idle",
       "all_frames": true
     }
@@ -53,11 +86,15 @@
   },
   "commands": {
     "toggle-radio": {
-      "suggested_key": { "default": "Alt+Shift+R" },
+      "suggested_key": {
+        "default": "Alt+Shift+R"
+      },
       "description": "라디오 모드 토글 (브라우저 어디서나)"
     },
     "toggle-boss": {
-      "suggested_key": { "default": "Alt+Shift+B" },
+      "suggested_key": {
+        "default": "Alt+Shift+B"
+      },
       "description": "루팡 모드 토글 (브라우저 어디서나)"
     },
     "toggle-minimize": {
@@ -79,8 +116,13 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["content/bandwidth-inject.js"],
-      "matches": ["*://*.sooplive.co.kr/*", "*://*.sooplive.com/*"]
+      "resources": [
+        "content/bandwidth-inject.js"
+      ],
+      "matches": [
+        "*://*.sooplive.co.kr/*",
+        "*://*.sooplive.com/*"
+      ]
     }
   ]
 }

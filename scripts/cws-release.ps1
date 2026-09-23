@@ -1,4 +1,4 @@
-param(
+﻿param(
     [ValidateSet("package", "status", "upload", "publish", "release")]
     [string]$Action = "release",
 
@@ -41,7 +41,7 @@ function Import-LocalEnvFile {
         return
     }
 
-    foreach ($rawLine in Get-Content $LocalEnvPath) {
+    foreach ($rawLine in Get-Content $LocalEnvPath -Encoding UTF8) {
         $line = $rawLine.Trim()
         if (-not $line) {
             continue
@@ -70,7 +70,7 @@ function Import-LocalEnvFile {
 
 function Get-Manifest {
     $manifestPath = Join-Path $RepoRoot "manifest.json"
-    return Get-Content $manifestPath -Raw | ConvertFrom-Json
+    return Get-Content $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
 function New-ExtensionPackage {
@@ -142,7 +142,13 @@ function New-ExtensionPackage {
     }
     finally {
         if (Test-Path $stageRoot) {
-            Remove-Item -LiteralPath $stageRoot -Recurse -Force
+            $resolvedStage = (Resolve-Path -LiteralPath $stageRoot).Path
+            $resolvedTemp = [IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\'
+            if (-not $resolvedStage.StartsWith($resolvedTemp, [StringComparison]::OrdinalIgnoreCase) -or
+                [IO.Path]::GetFileName($resolvedStage) -notmatch '^stream-radio-mode-cws-[a-f0-9]{32}$') {
+                throw "Refusing to remove an unexpected staging directory."
+            }
+            Remove-Item -LiteralPath $resolvedStage -Recurse -Force
         }
     }
 }
